@@ -23,7 +23,7 @@ jobs:
         # REQUIRED 'target_repo_token' exactly like this!
         target_repo_token: ${{ secrets.GITHUB_TOKEN }}
         upstream_sync_branch: main
-        upstream_sync_repo: fmind/mlops-python-package:main
+        upstream_sync_repo: fmind/mlops-python-package
 
         # Set test_mode true to run tests instead of the true action!!
         test_mode: true
