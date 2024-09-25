@@ -1,30 +1,38 @@
 # %% IMPORTS
 
-
+import _pytest.capture as pc
+import pytest
 from bikes import jobs
 from bikes.io import datasets, registries, services
 
 # %% JOBS
 
 
+@pytest.mark.parametrize("alias_or_version", [1, "Promotion"])
 def test_inference_job(
+    alias_or_version: str | int,
     mlflow_service: services.MlflowService,
+    alerts_service: services.AlertsService,
     logger_service: services.LoggerService,
     inputs_reader: datasets.Reader,
     tmp_outputs_writer: datasets.Writer,
     model_alias: registries.Version,
     loader: registries.Loader,
+    capsys: pc.CaptureFixture[str],
 ) -> None:
     # given
-    assert len(model_alias.aliases) == 1, "Model should have one alias!"
-    alias = model_alias.aliases[0]
+    if isinstance(alias_or_version, int):
+        assert alias_or_version == model_alias.version, "Model version should be the same!"
+    else:
+        assert alias_or_version == model_alias.aliases[0], "Model alias should be the same!"
     # when
     job = jobs.InferenceJob(
-        mlflow_service=mlflow_service,
         logger_service=logger_service,
+        alerts_service=alerts_service,
+        mlflow_service=mlflow_service,
         inputs=inputs_reader,
         outputs=tmp_outputs_writer,
-        alias=alias,
+        alias_or_version=alias_or_version,
         loader=loader,
     )
     with job as runner:
@@ -43,7 +51,7 @@ def test_inference_job(
     # - inputs
     assert out["inputs"].ndim == out["inputs_"].ndim == 2, "Inputs should be a dataframe!"
     # - model uri
-    assert alias in out["model_uri"], "Model URI should contain the model alias!"
+    assert str(alias_or_version) in out["model_uri"], "Model URI should contain the model alias!"
     assert (
         mlflow_service.registry_name in out["model_uri"]
     ), "Model URI should contain the registry name!"
@@ -57,3 +65,5 @@ def test_inference_job(
     ), "Model should have a pyfunc flavor!"
     # - outputs
     assert out["outputs"].ndim == 2, "Outputs should be a dataframe!"
+    # - alerting service
+    assert "Inference Job Finished" in capsys.readouterr().out, "Alerting service should be called!"

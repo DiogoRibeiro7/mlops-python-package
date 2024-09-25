@@ -1,5 +1,14 @@
 """Scripts for the CLI application."""
 
+# ruff: noqa: E402
+
+# %% WARNINGS
+
+import warnings
+
+# disable annoying mlflow warnings
+warnings.filterwarnings(action="ignore", category=UserWarning)
+
 # %% IMPORTS
 
 import argparse
@@ -11,7 +20,7 @@ from bikes.io import configs
 
 # %% PARSERS
 
-parser = argparse.ArgumentParser(description="Run an AI/ML job fron YAML/JSON configs.")
+parser = argparse.ArgumentParser(description="Run an AI/ML job from YAML/JSON configs.")
 parser.add_argument("files", nargs="*", help="Config files for the job (local path only).")
 parser.add_argument("-e", "--extras", nargs="*", default=[], help="Config strings for the job.")
 parser.add_argument("-s", "--schema", action="store_true", help="Print settings schema and exit.")
