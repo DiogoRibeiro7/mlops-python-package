@@ -27,7 +27,7 @@ jobs:
         upstream_sync_repo: fmind/mlops-python-package
 
         # Set test_mode true to run tests instead of the true action!!
-        test_mode: false
+        test_mode: true
 
     - name: Timestamp
       run: date
