@@ -5,6 +5,7 @@
 import abc
 import typing as T
 
+import pandas as pd
 import pydantic as pdt
 import shap
 from sklearn import compose, ensemble, pipeline, preprocessing
@@ -81,9 +82,6 @@ class Model(abc.ABC, pdt.BaseModel, strict=True, frozen=False, extra="forbid"):
     def explain_model(self) -> schemas.FeatureImportances:
         """Explain the internal model structure.
 
-        Raises:
-            NotImplementedError: method not implemented.
-
         Returns:
             schemas.FeatureImportances: feature importances.
         """
@@ -91,9 +89,6 @@ class Model(abc.ABC, pdt.BaseModel, strict=True, frozen=False, extra="forbid"):
 
     def explain_samples(self, inputs: schemas.Inputs) -> schemas.SHAPValues:
         """Explain model outputs on input samples.
-
-        Raises:
-            NotImplementedError: method not implemented.
 
         Returns:
             schemas.SHAPValues: SHAP values.
@@ -141,7 +136,7 @@ class BaselineSklearnModel(Model):
         "hum",
         "windspeed",
         "casual",
-        # "registered", # too correlated with target
+        "registered",  # too correlated with target
     ]
     _categoricals: list[str] = [
         "season",
@@ -163,7 +158,9 @@ class BaselineSklearnModel(Model):
             remainder="drop",
         )
         regressor = ensemble.RandomForestRegressor(
-            max_depth=self.max_depth, n_estimators=self.n_estimators, random_state=self.random_state
+            max_depth=self.max_depth,
+            n_estimators=self.n_estimators,
+            random_state=self.random_state,
         )
         # pipeline
         self._pipeline = pipeline.Pipeline(
@@ -179,9 +176,10 @@ class BaselineSklearnModel(Model):
     def predict(self, inputs: schemas.Inputs) -> schemas.Outputs:
         model = self.get_internal_model()
         prediction = model.predict(inputs)
-        outputs = schemas.Outputs(
-            {schemas.OutputsSchema.prediction: prediction}, index=inputs.index
+        outputs_ = pd.DataFrame(
+            data={schemas.OutputsSchema.prediction: prediction}, index=inputs.index
         )
+        outputs = schemas.OutputsSchema.check(data=outputs_)
         return outputs
 
     @T.override
@@ -189,13 +187,14 @@ class BaselineSklearnModel(Model):
         model = self.get_internal_model()
         regressor = model.named_steps["regressor"]
         transformer = model.named_steps["transformer"]
-        column_names = transformer.get_feature_names_out()
-        feature_importances = schemas.FeatureImportances(
+        feature = transformer.get_feature_names_out()
+        feature_importances_ = pd.DataFrame(
             data={
-                "feature": column_names,
+                "feature": feature,
                 "importance": regressor.feature_importances_,
             }
         )
+        feature_importances = schemas.FeatureImportancesSchema.check(data=feature_importances_)
         return feature_importances
 
     @T.override
@@ -205,10 +204,11 @@ class BaselineSklearnModel(Model):
         transformer = model.named_steps["transformer"]
         transformed = transformer.transform(X=inputs)
         explainer = shap.TreeExplainer(model=regressor)
-        shap_values = schemas.SHAPValues(
+        shap_values_ = pd.DataFrame(
             data=explainer.shap_values(X=transformed),
             columns=transformer.get_feature_names_out(),
         )
+        shap_values = schemas.SHAPValuesSchema.check(data=shap_values_)
         return shap_values
 
     @T.override

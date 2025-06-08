@@ -1,3 +1,37 @@
+## v4.1.0 (2025-03-05)
+
+### Feat
+
+- **gemini**: add support for gemini code assist (#51)
+- **dependabot**: add dependabot configuration file (#50)
+- **github**: add default rulesets and installation (#47)
+
+### Fix
+
+- **workflows**: fix just in workflows
+
+### Refactor
+
+- **cruft**: update to new template version
+
+## v4.0.0 (2025-03-04)
+
+### Feat
+
+- **tasks**: switch from pyinvoke to just (#42)
+- **workflows**: bump GitHub action versions (#41)
+- **versions**: bump python and package version (#40)
+- **mindmap**: add mindmap of the package (#32)
+
+### Fix
+
+- **version**: ready to bump
+- **datasets**: fix dtype backend (#44)
+
+### Refactor
+
+- **cruft**: update to new template version
+
 ## v2.0.0 (2024-07-28)
 
 ### Feat
@@ -21,32 +55,6 @@
 ### Fix
 
 - **publish**: fix publication workflow by installing dev dependencies
-
-## v1.1.0 (2024-07-21)
-
-### Feat
-
-- **kpi**: add key performance indicators
-- **mlproject**: add mlflow project and tasks
-- **monitoring**: add mlflow.evaluate API
-- **lineage**: add lineage features through mlflow data api
-- **explanations**: add explainability features and tooling
-- **data**: add train, test, and sample data
-- **notification**: add service and alerts with plyer
-- **observability**: add alerting with plyer notifications
-- **observability**: add infrastructure through mlflow system metrics
-
-### Fix
-
-- **kpi**: add key performance indicators
-- **projects**: change naming convention
-- **evaluation**: add evaluation files
-- **loading**: use version or alias for loading models
-- **warnings**: improve styles and remove warnings
-- **mlflow**: remove input examples following the addition of lineage
-- **paths**: fix path for explanation job
-- **data**: fix models explanations name
-- **data**: add parquet data
 
 ## v1.0.1 (2024-06-28)
 

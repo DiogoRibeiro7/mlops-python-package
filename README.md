@@ -13,8 +13,11 @@ The package leverages several [tools](#tools) and [tips](#tips) to make your MLO
 You can use this package as part of your MLOps toolkit or platform (e.g., Model Registry, Experiment Tracking, Realtime Inference, ...).
 
 **Related Resources**:
+- **[LLMOps Coding Package (Example)](https://github.com/callmesora/llmops-python-package/)**: Example with best practices and tools to support your LLMOps projects.
 - **[MLOps Coding Course (Learning)](https://github.com/MLOps-Courses/mlops-coding-course)**: Learn how to create, develop, and maintain a state-of-the-art MLOps code base.
 - **[Cookiecutter MLOps Package (Template)](https://github.com/fmind/cookiecutter-mlops-package)**: Start building and deploying Python packages and Docker images for MLOps tasks.
+
+![](images/mlopsmindmap.png)
 
 # Table of Contents
 
@@ -31,9 +34,11 @@ You can use this package as part of your MLOps toolkit or platform (e.g., Model 
   - [Workflows](#workflows)
 - [Tools](#tools)
   - [Automation](#automation-1)
+    - [AI Assistant: Gemini Code Assist](#ai-assistant-gemini-code-assist)
     - [Commits: Commitizen](#commits-commitizen)
+    - [Dependabot: Dependabot](#dependabot-dependabot)
     - [Git Hooks: Pre-Commit](#git-hooks-pre-commit)
-    - [Tasks: PyInvoke](#tasks-pyinvoke)
+    - [Tasks: Just](#tasks-just)
   - [CI/CD](#cicd)
     - [Runner: GitHub Actions](#runner-github-actions)
   - [CLI](#cli)
@@ -69,11 +74,11 @@ You can use this package as part of your MLOps toolkit or platform (e.g., Model 
   - [Package](#package)
     - [Evolution: Changelog](#evolution-changelog)
     - [Format: Wheel](#format-wheel)
-    - [Manager: Poetry](#manager-poetry)
+    - [Manager: uv](#manager-uv)
     - [Runtime: Docker](#runtime-docker)
   - [Programming](#programming)
     - [Language: Python](#language-python)
-    - [Version: Pyenv](#version-pyenv)
+    - [Version: Uv](#version-uv)
   - [Observability](#observability)
     - [Reproducibility: Mlflow Project](#reproducibility-mlflow-project)
     - [Monitoring : Mlflow Evaluate](#monitoring--mlflow-evaluate)
@@ -118,8 +123,8 @@ This section details the requirements, actions, and next steps to kickstart your
 
 ## Prerequisites
 
-- [Python>=3.12](https://www.python.org/downloads/): to benefit from [the latest features and performance improvements](https://docs.python.org/3/whatsnew/3.12.html)
-- [Poetry>=1.8.2](https://python-poetry.org/): to initialize the project [virtual environment](https://docs.python.org/3/library/venv.html) and its dependencies
+- [Python>=3.13](https://www.python.org/downloads/): to benefit from [the latest features and performance improvements](https://docs.python.org/3/whatsnew/3.13.html)
+- [uv>=0.5.5](https://docs.astral.sh/uv/): to initialize the project [virtual environment](https://docs.python.org/3/library/venv.html) and its dependencies
 
 ## Installation
 
@@ -130,10 +135,10 @@ $ git clone git@github.com:fmind/mlops-python-package
 # with https
 $ git clone https://github.com/fmind/mlops-python-package
 ```
-2. [Run the project installation with poetry](https://python-poetry.org/docs/)
+2. [Run the project installation with uv](https://docs.astral.sh/uv/)
 ```bash
 $ cd mlops-python-package/
-$ poetry install
+$ uv sync
 ```
 3. Adapt the code base to your desire
 
@@ -171,26 +176,26 @@ This config file instructs the program to start a `TrainingJob` with 2 parameter
 
 You can find all the parameters of your program in the `src/[package]/jobs/*.py` files.
 
-You can also print the full schema supported by this package using `poetry run bikes --schema`.
+You can also print the full schema supported by this package using `uv run bikes --schema`.
 
 ## Execution
 
-The project code can be executed with poetry during your development:
+The project code can be executed with uv during your development:
 
 ```bash
-$ poetry run [package] confs/tuning.yaml
-$ poetry run [package] confs/training.yaml
-$ poetry run [package] confs/promotion.yaml
-$ poetry run [package] confs/inference.yaml
-$ poetry run [package] confs/evaluations.yaml
-$ poetry run [package] confs/explanations.yaml
+$ uv run [package] confs/tuning.yaml
+$ uv run [package] confs/training.yaml
+$ uv run [package] confs/promotion.yaml
+$ uv run [package] confs/inference.yaml
+$ uv run [package] confs/evaluations.yaml
+$ uv run [package] confs/explanations.yaml
 ```
 
 In production, you can build, ship, and run the project as a Python package:
 
 ```bash
-poetry build
-poetry publish # optional
+uv build
+uv publish # optional
 python -m pip install [package]
 [package] confs/inference.yaml
 ```
@@ -211,78 +216,97 @@ with job as runner:
 - You can pass several config files in the command-line to merge them from left to right
   - You can define common configurations shared between jobs (e.g., model params)
 - The right job task will be selected automatically thanks to [Pydantic Discriminated Unions](https://docs.pydantic.dev/latest/concepts/unions/#discriminated-unions)
-  - This is a great way to run any job supported by the application (training, tuning, ....
+  - This is a great way to run any job supported by the application (training, tuning, ...)
 
 ## Automation
 
 This project includes several automation tasks to easily repeat common actions.
 
-You can invoke the actions from the [command-line](https://www.pyinvoke.org/) or [VS Code extension](https://marketplace.visualstudio.com/items?itemName=dchanco.vsc-invoke).
+You can invoke the actions from the [command-line](https://just.systems/man/en/introduction.html) or [VS Code extension](https://marketplace.visualstudio.com/items?itemName=nefrob.vscode-just-syntax).
 
 ```bash
 # execute the project DAG
-$ inv projects
+$ just project
 # create a code archive
-$ inv packages
+$ just package
 # list other actions
-$ inv --list
+$ just
 ```
 
 **Available tasks**:
-- **checks.all (checks)** - Run all check tasks.
-- **checks.code** - Check the codes with ruff.
-- **checks.coverage** - Check the coverage with coverage.
-- **checks.format** - Check the formats with ruff.
-- **checks.poetry** - Check poetry config files.
-- **checks.security** - Check the security with bandit.
-- **checks.test** - Check the tests with pytest.
-- **checks.type** - Check the types with mypy.
-- **cleans.all (cleans)** - Run all tools and folders tasks.
-- **cleans.cache** - Clean the cache folder.
-- **cleans.coverage** - Clean the coverage tool.
-- **cleans.dist** - Clean the dist folder.
-- **cleans.docs** - Clean the docs folder.
-- **cleans.environment** - Clean the project environment file.
-- **cleans.folders** - Run all folders tasks.
-- **cleans.mlruns** - Clean the mlruns folder.
-- **cleans.mypy** - Clean the mypy tool.
-- **cleans.outputs** - Clean the outputs folder.
-- **cleans.poetry** - Clean poetry lock file.
-- **cleans.pytest** - Clean the pytest tool.
-- **cleans.projects** - Run all projects tasks.
-- **cleans.python** - Clean python caches and bytecodes.
-- **cleans.requirements** - Clean the project requirements file.
-- **cleans.reset** - Run all tools, folders, and sources tasks.
-- **cleans.ruff** - Clean the ruff tool.
-- **cleans.sources** - Run all sources tasks.
-- **cleans.tools** - Run all tools tasks.
-- **cleans.venv** - Clean the venv folder.
-- **commits.all (commits)** - Run all commit tasks.
-- **commits.bump** - Bump the version of the package.
-- **commits.commit** - Commit all changes with a message.
-- **commits.info** - Print a guide for messages.
-- **containers.all (containers)** - Run all container tasks.
-- **containers.build** - Build the container image with the given tag.
-- **containers.compose** - Start up docker compose.
-- **containers.run** - Run the container image with the given tag.
-- **docs.all (docs)** - Run all docs tasks.
-- **docs.api** - Document the API with pdoc using the given format and output directory.
-- **docs.serve** - Serve the API docs with pdoc using the given format and computer port.
-- **formats.all** - (formats) Run all format tasks.
-- **formats.imports** - Format python imports with ruff.
-- **formats.sources** - Format python sources with ruff.
-- **installs.all (installs)** - Run all install tasks.
-- **installs.poetry** - Install poetry packages.
-- **installs.pre-commit** - Install pre-commit hooks on git.
-- **mlflow.all (mlflow)** - Run all mlflow tasks.
-- **mlflow.doctor** - Run mlflow doctor to diagnose issues.
-- **mlflow.serve** - Start mlflow server with the given host, port, and backend uri.
-- **packages.all (packages)** - Run all package tasks.
-- **packages.build** - Build a python package with the given format.
-- **projects.all (projects)** - Run all project tasks.
-- **projects.environment** - Export the project environment file.
-- **projects.requirements** - Export the project requirements file.
-- **projects.run** - Run an mlflow project from MLproject file.
+
+```toml
+default # display help information
+
+[check]
+check # run check tasks
+check-code # check code quality
+check-coverage numprocesses="auto" cov_fail_under="80" # check code coverage
+check-format # check code format
+check-security # check code security
+check-test numprocesses="auto" # check unit tests
+check-type # check code typing
+
+[clean]
+clean # run clean tasks
+clean-build # clean build folders
+clean-cache # clean cache folder
+clean-constraints # clean constraints file
+clean-coverage # clean coverage files
+clean-docs # clean docs folder
+clean-environment # clean environment file
+clean-mlruns # clean mlruns folder
+clean-mypy # clean mypy folders
+clean-outputs # clean outputs folder
+clean-pytest # clean pytest cache
+clean-python # clean python caches
+clean-requirements # clean requirements file
+clean-ruff # clean ruff cache
+clean-venv # clean venv folder
+
+[commit]
+commit-bump # bump package
+commit-files # commit package
+commit-info # get commit info
+
+[doc]
+doc # run doc tasks
+doc-build format="google" output="docs" # build documentation
+doc-serve format="google" port="8088" # serve documentation
+
+[docker]
+docker # run docker tasks
+docker-build tag="latest" # build docker image
+docker-compose # start docker compose
+docker-run tag="latest" # run latest docker image
+
+[format]
+format # run format tasks
+format-import # format code import
+format-source # format code source
+
+[install]
+install # run install tasks
+install-hooks # install git hooks
+install-project # install the project
+install-rulesets # install github rulesets
+
+[mlflow]
+mlflow # run mlflow tasks
+mlflow-doctor # run mlflow doctor
+mlflow-serve host="127.0.0.1" port="5000" uri="./mlruns" # start mlflow server
+
+[package]
+package # run package tasks
+package-build constraints="constraints.txt" # build python package
+package-constraints constraints="constraints.txt" # build package constraints
+
+[project]
+project # run project tasks
+project-environment # export environment file
+project-requirements # export requirements file
+project-run job # run project job using mlflow
+```
 
 ## Workflows
 
@@ -300,6 +324,15 @@ This sections motivates the use of developer tools to improve your coding experi
 
 Pre-defined actions to automate your project development.
 
+### AI Assistant: [Gemini Code Assist](https://developers.google.com/gemini-code-assist/docs/review-github-code)
+
+- **Motivations**:
+  - Increase your coding productivity
+  - Get code suggestions and completions
+  - Reduce the time spent on reviewing code
+- **Limitations**:
+  - Can generate wrong code, reviews, or summaries
+
 ### Commits: [Commitizen](https://commitizen-tools.github.io/commitizen/)
 
 - **Motivations**:
@@ -308,6 +341,17 @@ Pre-defined actions to automate your project development.
   - Integrate well with [SemVer](https://semver.org/) and [PEP 440](https://peps.python.org/pep-0440/)
 - **Limitations**:
   - Learning curve for new users
+- **Alternatives**:
+  - Do It Yourself (DIY)
+
+### Dependabot: [Dependabot](https://docs.github.com/en/code-security/getting-started/dependabot-quickstart-guide)
+
+- **Motivations**:
+  - Avoid security issues
+  - Avoid breaking changes
+  - Update your dependencies
+- **Limitations**:
+  - Can break your code
 - **Alternatives**:
   - Do It Yourself (DIY)
 
@@ -322,16 +366,17 @@ Pre-defined actions to automate your project development.
 - **Alternatives**:
   - [Git Hooks](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks): less convenient to use
 
-### Tasks: [PyInvoke](https://www.pyinvoke.org/)
+### Tasks: [Just](https://just.systems/man/en/introduction.html)
 
 - **Motivations**:
   - Automate project workflows
   - Sane syntax compared to alternatives
-  - Good trade-off between power/simplicity
+  - Good trade-off between power and simplicity
 - **Limitations**:
   - Not familiar to most developers
 - **Alternatives**:
   - [Make](https://www.gnu.org/software/make/manual/make.html): most popular, but awful syntax
+  - [PyInvoke](https://www.pyinvoke.org/): pythonic, but verbose and less straightforward.
 
 ## CI/CD
 
@@ -579,8 +624,8 @@ Generate and share the project documentations.
 - **Limitations**:
   - Only support API docs (i.e., no custom docs)
 - **Alternatives**:
-  - [Sphinx](https://www.sphinx-doc.org/en/master/): Most complete, overkill for simple projects
-  - [Mkdocs](https://www.mkdocs.org/): no support for API doc, which is the core feature
+  - [Sphinx](https://www.sphinx-doc.org/en/master/): More complete, overkill for simple projects
+  - [Mkdocs](https://www.mkdocs.org/): More complete, but requires more setup
 
 ### Format: [Google](https://google.github.io/styleguide/pyguide.html)
 
@@ -684,17 +729,18 @@ Define and build modern Python package.
   - [Source](https://docs.python.org/3/distutils/sourcedist.html): older format, less powerful
   - [Conda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html): slow and hard to manage
 
-### Manager: [Poetry](https://python-poetry.org/)
+### Manager: [uv](https://docs.astral.sh/uv/)
 
 - **Motivations**:
   - Define and build Python package
-  - Most popular solution by GitHub stars
+  - Fast and compliant package manager
   - Pack every metadata in a single static file
 - **Limitations**:
   - Cannot add dependencies beyond Python (e.g., CUDA)
     - i.e., use Docker container for this use case
 - **Alternatives**:
   - [Setuptools](https://docs.python.org/3/distutils/setupscript.html): dynamic file is slower and more risky
+  - [Poetry](https://python-poetry.org/): previous solution of this package
   - Pdm, Hatch, PipEnv: https://xkcd.com/1987/
 
 ### Runtime: [Docker](https://www.docker.com/resources/what-container/)
@@ -724,7 +770,7 @@ Select your programming environment.
   - [R](https://www.r-project.org/): specific purpose language
   - [Julia](https://julialang.org/): specific purpose language
 
-### Version: [Pyenv](https://github.com/pyenv/pyenv)
+### Version: [Uv](https://docs.astral.sh/uv/guides/install-python/)
 
 - **Motivations**:
   - Switch between Python version
@@ -734,6 +780,7 @@ Select your programming environment.
   - Require some shell configurations
 - **Alternatives**:
   - Manual installation: time consuming
+  - [PyEnv](https://github.com/pyenv/pyenv): shell-based, require more setup
 
 ## Observability
 
@@ -866,7 +913,7 @@ This package provides a simple deterministic strategy implemented in `src/[packa
 
 A DAG can express the dependencies between steps while keeping the individual step independent.
 
-This package provides a simple DAG example in `tasks/dags.py`. This approach is based on [PyInvoke](https://www.pyinvoke.org/).
+This package provides a DAG example in `tasks/project.just`. The approach is based on [Just](https://just.systems/man/en/introduction.html) and is explained in the section on Automation above.
 
 In production, we recommend to use a scalable system such as [Airflow](https://airflow.apache.org/), [Dagster](https://dagster.io/), [Prefect](https://www.prefect.io/), [Metaflow](https://metaflow.org/), or [ZenML](https://zenml.io/).
 
@@ -937,10 +984,10 @@ Using Python package for your AI/ML project has the following benefits:
 - Install Python package as a library (e.g., like pandas)
 - Expose script entry points to run a CLI or a GUI
 
-To build a Python package with Poetry, you simply have to type in a terminal:
+To build a Python package with uv, you simply have to type in a terminal:
 ```bash
-# for all poetry project
-poetry build
+# for all uv project
+uv build
 # for this project only
 inv packages
 ```
@@ -1044,7 +1091,7 @@ Semantic Versioning (SemVer) provides a simple schema to communicate code change
 - *Minor* (Y): minor release with new features (i.e., provide new capabilities)
 - *Patch* (Z): patch release to fix bugs (i.e., correct wrong behavior)
 
-Poetry and this package leverage Semantic Versioning to let developers control the speed of adoption for new releases.
+Uv and this package leverage Semantic Versioning to let developers control the speed of adoption for new releases.
 
 ## [Testing Tricks](https://en.wikipedia.org/wiki/Software_testing)
 
