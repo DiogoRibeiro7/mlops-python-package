@@ -434,7 +434,7 @@ Edition, validation, and versioning of your project source code.
 - **Limitations**:
   - None
 - **Alternatives**:
-  - None?
+-  - [Pytest Cov](https://pytest-cov.readthedocs.io/en/latest/) A Pytest plugin that uses `coverage.py` to measure code coverage.
 
 ### Editor: [VS Code](https://code.visualstudio.com/)
 
