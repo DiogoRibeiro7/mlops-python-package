@@ -611,9 +611,9 @@ matplotlib==3.10.1 \
     # via
     #   bikes (pyproject.toml)
     #   mlflow
-mlflow==3.1.0 \
-    --hash=sha256:4101d027b548afacc263b76617098454ce5281e23021bc44f11edc684495e63d \
-    --hash=sha256:de0b90aa058b532738081deec791bb2fca35abcca0fd9358da75fefe0a6170f4
+mlflow==3.5.0rc0 \
+    --hash=sha256:ba16511691d6bb031a7bd20bfca674e5c45dec4f36ed67a1895dce07811071b0 \
+    --hash=sha256:fe784a8f767ace6f84b42e64aeacac1c7e8d6b4c6272e7fb5f0cf3a30f477e5b
     # via bikes (pyproject.toml)
 mlflow-skinny==2.20.3 \
     --hash=sha256:4151f74500611f4c2ee1caf30b0108817b456654b42edbede2503dd6e845ed91 \
