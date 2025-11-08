@@ -69,7 +69,7 @@ markupsafe==3.0.2
 matplotlib==3.10.1
 matplotlib-inline==0.1.7
 mdurl==0.1.2
-mlflow==3.1.0
+mlflow==3.5.0rc0
 mlflow-skinny==2.20.3
 mypy==1.15.0
 mypy-extensions==1.0.0
