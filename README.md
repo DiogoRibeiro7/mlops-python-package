@@ -2,11 +2,19 @@
 
 [![Check](https://github.com/DiogoRibeiro7/mlops-python-package/actions/workflows/check.yml/badge.svg)](https://github.com/DiogoRibeiro7/mlops-python-package/actions/workflows/check.yml)
 
-An independently maintained Python project for classical machine-learning workflows, maintained by Diogo Ribeiro. The current implementation uses bike rental demand as its worked example.
+**This is a derivative project, originally forked from [fmind/mlops-python-package](https://github.com/fmind/mlops-python-package), authored by Médéric HURIER and upstream contributors.** Its original architecture, bike example and most of its current implementation were inherited. Detaching the GitHub fork does not change that provenance.
+
+Diogo Ribeiro maintains this independent continuation. Our aim is to improve reproducibility, scientific validation and model-promotion controls while giving the original work clear credit.
 
 The development goal is reproducible training and auditable model promotion. The inherited implementation is a starting point and is not yet a validated production system.
 
-## Current capabilities
+## What has changed here
+
+The independent work so far establishes maintenance ownership, removes automatic upstream synchronization, corrects repository and publishing links, and documents the inherited limitations. Runtime environment exports now come from the uv lockfile with a CI freshness check and preserved platform markers.
+
+Target leakage, independent evaluation and evidence-based promotion remain open work. These are goals, not delivered capabilities. The [roadmap](documentation/ROADMAP.md) defines their acceptance criteria, and [ATTRIBUTION.md](ATTRIBUTION.md) records the starting point.
+
+## Inherited capabilities
 
 - Typed configuration with Pydantic and dataframe validation with Pandera.
 - Separate modules for models, data access, registries and execution jobs.
@@ -18,7 +26,7 @@ The package and command remain named `bikes` for compatibility. Version `4.1.0` 
 
 ## Development setup
 
-Install Python 3.13 and uv, then run:
+Install Python 3.13 and uv 0.11.33 (the version pinned in CI), then run:
 
 ```bash
 git clone https://github.com/DiogoRibeiro7/mlops-python-package.git
@@ -38,7 +46,14 @@ uv run bandit --recursive --configfile=pyproject.toml src
 uv run pytest -n auto --cov=src --cov-fail-under=80 tests
 ```
 
-Use `uv.lock` for development. The inherited `requirements.txt`, `python_env.yaml` and container environment are not yet reconciled. Do not treat them as equivalent installation paths.
+Use `uv.lock` as the dependency source of truth. Regenerate and verify runtime exports with:
+
+```bash
+python scripts/export_environment.py
+python scripts/export_environment.py --check
+```
+
+Both exports exclude default development groups and retain platform conditions. This aligns them with the existing MLflow 2.20.3 baseline; it is not a dependency security upgrade. The pending dependency update requires a separate compatibility review. Clean wheel and container installation still need dedicated validation.
 
 ## Structure
 
@@ -50,6 +65,7 @@ Use `uv.lock` for development. The inherited `requirements.txt`, `python_env.yam
 | `src/bikes/utils/` | Splitters, hyperparameter search and model signatures |
 | `confs/` | Example job configurations |
 | `tests/` | Unit and integration tests with sample data |
+| `scripts/` | Runtime environment export and verification |
 | `documentation/` | Maintained project documentation and roadmap |
 
 ## Known limitations
@@ -58,7 +74,7 @@ The current bike model includes `casual` and `registered`, the components of the
 
 The default evaluation configuration reads training data. Promotion selects the latest version when none is supplied and changes the Champion alias without requiring passing evaluation evidence. The inherited `just project` sequence promotes before evaluating. Do not use that sequence to approve a deployment.
 
-Dependency exports disagree with the uv lockfile. Release publishing is therefore manual while the independent baseline is repaired. Dispatching Publish writes documentation to `gh-pages` and publishes a container under `ghcr.io/diogoribeiro7/mlops-python-package`; it should only be run after the release gates in the roadmap pass. Hosted documentation is not assumed to be configured.
+Release publishing remains manual while scientific validation, dependency security review and installation verification are incomplete. Dispatching Publish writes documentation to `gh-pages` and publishes a container under `ghcr.io/diogoribeiro7/mlops-python-package`; it should only be run after the release gates in the roadmap pass. Hosted documentation is not assumed to be configured.
 
 See the [roadmap](documentation/ROADMAP.md) for acceptance criteria and implementation order.
 

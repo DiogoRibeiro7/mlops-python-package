@@ -1,5 +1,8 @@
 # Independent maintenance: unreleased
 
+- Generate consistent runtime environment exports from uv.lock, retaining platform markers and excluding default development groups.
+- Check export freshness in CI and distinguish inherited capabilities from independent changes in the README.
+
 - Establish independent maintenance by Diogo Ribeiro with preserved upstream attribution.
 - Remove automatic upstream synchronization, active template linkage and inherited funding configuration.
 - Replace upstream project links and container destination; make publication manual.
