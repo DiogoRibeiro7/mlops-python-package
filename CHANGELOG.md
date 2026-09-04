@@ -1,3 +1,13 @@
+# Independent maintenance: unreleased
+
+- Establish independent maintenance by Diogo Ribeiro with preserved upstream attribution.
+- Remove automatic upstream synchronization, active template linkage and inherited funding configuration.
+- Replace upstream project links and container destination; make publication manual.
+- Run locked CI installation on pull requests and main.
+- Document known modelling and dependency limitations and their acceptance gates.
+
+The entries below are retained historical release notes.
+
 ## v4.1.0 (2025-03-05)
 
 ### Feat
