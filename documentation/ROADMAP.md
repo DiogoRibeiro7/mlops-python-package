@@ -12,7 +12,7 @@ Goal: a Python workflow for classical ML with reproducible training and auditabl
 ## 2. Reproducible installation
 
 - Choose and validate a stable MLflow version with the existing APIs.
-- Regenerate requirements and MLflow environment from one lockfile, preserving platform markers.
+- Completed: generate runtime requirements and MLflow environment from one lockfile, preserving platform markers; verify freshness in CI.
 - Reconcile the Compose server version with the client environment.
 - Separate optional explanation, notebook and build dependencies from runtime needs.
 - Gate CI on export consistency and clean wheel installation, including CLI execution outside the source tree.
