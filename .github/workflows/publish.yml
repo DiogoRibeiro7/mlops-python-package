@@ -1,21 +1,20 @@
 name: Publish
 on:
-  release:
-    types:
-      - edited
-      - published
+  workflow_dispatch:
 env:
-  DOCKER_IMAGE: ghcr.io/fmind/mlops-python-package
+  DOCKER_IMAGE: ghcr.io/diogoribeiro7/mlops-python-package
 concurrency:
   cancel-in-progress: true
   group: publish-workflow
 jobs:
   pages:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - run: uv sync --group=doc
+      - run: uv sync --locked --group=doc
       - run: uv run just doc
       - uses: JamesIves/github-pages-deploy-action@v4
         with:
@@ -23,12 +22,13 @@ jobs:
           branch: gh-pages
   packages:
     permissions:
+      contents: read
       packages: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - run: uv sync --only-dev
+      - run: uv sync --locked --only-dev
       - run: uv run just package
       - uses: docker/login-action@v3
         with:
@@ -44,4 +44,4 @@ jobs:
           cache-from: type=gha
           tags: |
             ${{ env.DOCKER_IMAGE }}:latest
-            ${{ env.DOCKER_IMAGE }}:${{ github.ref_name }}
+            ${{ env.DOCKER_IMAGE }}:sha-${{ github.sha }}

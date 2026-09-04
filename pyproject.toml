@@ -6,8 +6,9 @@
 [project]
 name = "bikes"
 version = "4.1.0"
-description = "Predict the number of bikes available."
+description = "Classical ML workflows with a bike-demand reference implementation."
 authors = [{ name = "Médéric HURIER", email = "github@fmind.dev" }]
+maintainers = [{ name = "Diogo Ribeiro" }]
 readme = "README.md"
 license = { file = "LICENSE.txt" }
 keywords = ["mlops", "python", "package"]
@@ -37,11 +38,11 @@ dependencies = [
 # LINKS
 
 [project.urls]
-Homepage = "https://github.com/fmind/mlops-python-package"
-Documentation = "https://fmind.github.io/mlops-python-package/bikes.html"
-Repository = "https://github.com/fmind/mlops-python-package"
-"Bug Tracker" = "https://github.com/fmind/mlops-python-package/issues"
-Changelog = "https://github.com/fmind/mlops-python-package/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/DiogoRibeiro7/mlops-python-package"
+Documentation = "https://github.com/DiogoRibeiro7/mlops-python-package/tree/main/documentation"
+Repository = "https://github.com/DiogoRibeiro7/mlops-python-package"
+"Bug Tracker" = "https://github.com/DiogoRibeiro7/mlops-python-package/issues"
+Changelog = "https://github.com/DiogoRibeiro7/mlops-python-package/blob/main/CHANGELOG.md"
 
 # SCRIPTS
 

@@ -1,8 +1,11 @@
 name: Check
 on:
   pull_request:
-    branches:
-      - '*'
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
 concurrency:
   cancel-in-progress: true
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - run: uv sync --group=check
+      - run: uv sync --locked --group=check
       - run: uv run just check-code
       - run: uv run just check-type
       - run: uv run just check-format
