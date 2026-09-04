@@ -15,7 +15,8 @@ Goal: a Python workflow for classical ML with reproducible training and auditabl
 - Completed: generate runtime requirements and MLflow environment from one lockfile, preserving platform markers; verify freshness in CI.
 - Reconcile the Compose server version with the client environment.
 - Separate optional explanation, notebook and build dependencies from runtime needs.
-- Gate CI on clean wheel installation, including CLI execution outside the source tree.
+- Completed: gate CI on Linux/Python 3.13 wheel installation, dependency consistency, installed package origin, and CLI help/schema execution outside the source tree.
+- Validate installed end-to-end jobs and container execution separately.
 - Review dependency security findings inherited from the fork.
 
 Acceptance: development, installed wheel and documented job environment resolve compatible versions and pass the relevant smoke and integration checks.
