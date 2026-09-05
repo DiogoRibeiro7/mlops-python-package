@@ -1,5 +1,7 @@
 # Independent maintenance: unreleased
 
+- Add explicit audited rollback to the previous alias version recorded by a successful promotion, rejecting stale state, missing targets and incomplete history.
+
 - Require explicit promotion candidates and matching finished evaluation evidence, dataset digests and independently passing metrics. Record the previous alias and policy; stop automatic project execution after training.
 
 - Narrow the evaluation acceptance regression’s exception scope to the validation call.
