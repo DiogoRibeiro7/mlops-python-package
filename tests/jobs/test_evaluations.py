@@ -50,6 +50,7 @@ def test_evaluations_job(
     model_alias: registries.Version,
     metric: metrics.SklearnMetric,
     capsys: pc.CaptureFixture[str],
+    mocker: MockerFixture,
 ) -> None:
     # given
     if isinstance(alias_or_version, int):
@@ -60,6 +61,31 @@ def test_evaluations_job(
         name="EvaluationsTest",
         tags={"context": "evaluations"},
         description="Evaluations job.",
+    )
+    client = mlflow_service.client()
+    original_load = registries.CustomLoader.load
+    loaded_uris: list[str] = []
+
+    def load_after_alias_change(
+        loader: registries.CustomLoader, uri: str
+    ) -> registries.CustomLoader.Adapter:
+        """Move the alias after resolution, immediately before real model loading."""
+        loaded_uris.append(uri)
+        if isinstance(alias_or_version, str):
+            replacement = client.create_model_version(
+                name=mlflow_service.registry_name,
+                source=model_alias.source,
+                run_id=model_alias.run_id,
+            )
+            client.set_registered_model_alias(
+                name=mlflow_service.registry_name,
+                alias=alias_or_version,
+                version=replacement.version,
+            )
+        return original_load(loader, uri)
+
+    mocker.patch.object(
+        registries.CustomLoader, "load", side_effect=load_after_alias_change, autospec=True
     )
     # when
     job = jobs.EvaluationsJob(
@@ -126,7 +152,22 @@ def test_evaluations_job(
     # - outputs
     assert out["outputs"].ndim == 2, "Outputs should be a dataframe!"
     # - model uri
-    assert str(alias_or_version) in out["model_uri"], "Model URI should contain the model alias!"
+    expected_uri = registries.uri_for_model_version(
+        mlflow_service.registry_name, int(model_alias.version)
+    )
+    assert loaded_uris == [expected_uri]
+    assert out["model_uri"] == expected_uri
+    tags = client.get_run(out["run"].info.run_id).data.tags
+    assert tags["evaluation.model_name"] == mlflow_service.registry_name
+    assert tags["evaluation.model_version"] == str(model_alias.version)
+    assert tags["evaluation.model_uri"] == expected_uri
+    assert tags["evaluation.model_source_run_id"] == model_alias.run_id
+    assert tags["evaluation.model_requested"] == str(alias_or_version)
+    if isinstance(alias_or_version, str):
+        moved = client.get_model_version_by_alias(
+            name=mlflow_service.registry_name, alias=alias_or_version
+        )
+        assert moved.version != model_alias.version
     assert mlflow_service.registry_name in out["model_uri"], (
         "Model URI should contain the registry name!"
     )

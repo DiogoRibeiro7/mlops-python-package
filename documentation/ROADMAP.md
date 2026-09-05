@@ -37,7 +37,8 @@ Acceptance: regression tests reject target-derived features and overlapping spli
 ## 4. Auditable promotion
 
 - Bind dataset hashes, split membership, configuration, code revision and environment to each run.
-- Evaluate an explicit candidate version before changing an alias.
+- Completed: evaluation resolves a selector once, loads the version URI and records the model identity and source run ID; an alias-movement regression checks version stability.
+- Still open: require evaluation of an explicit candidate before promotion changes an alias.
 - Require a passing evaluation record for that exact model and dataset version.
 - Record the previous Champion and provide explicit rollback.
 - Fail clearly for missing versions, non-finite metrics or absent evaluation evidence.
