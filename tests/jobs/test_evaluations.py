@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import _pytest.capture as pc
+import mlflow
 import pytest
 from pytest_mock import MockerFixture
 
@@ -18,11 +19,7 @@ from bikes.io import datasets, registries, services
     [
         (
             1,
-            {
-                "mean_squared_error": metrics.Threshold(
-                    threshold=float("inf"), greater_is_better=False
-                )
-            },
+            {"mean_squared_error": metrics.Threshold(threshold=1e12, greater_is_better=False)},
         ),
         (
             "Promotion",
@@ -158,6 +155,7 @@ def test_evaluations_job(
     assert loaded_uris == [expected_uri]
     assert out["model_uri"] == expected_uri
     tags = client.get_run(out["run"].info.run_id).data.tags
+    assert tags["evaluation.thresholds"] == "passed"
     assert tags["evaluation.model_name"] == mlflow_service.registry_name
     assert tags["evaluation.model_version"] == str(model_alias.version)
     assert tags["evaluation.model_uri"] == expected_uri
@@ -270,7 +268,60 @@ def test_evaluation_reference_boundary(
             out = runner.run()
             loader.assert_called_once()
             run = out["client"].get_run(out["run"].info.run_id)
+            assert run.data.tags["evaluation.thresholds"] == "unchecked"
             assert run.data.tags["evaluation.boundary"] == "passed_against_reference"
             assert any(
                 item.dataset.name == "reference_inputs" for item in run.inputs.dataset_inputs
             )
+
+
+@pytest.mark.parametrize(
+    "values, configured, expected",
+    [
+        ({"r2_score": 0.8}, True, "passed"),
+        ({"r2_score": 0.2}, True, "rejected"),
+        ({}, True, "rejected"),
+        ({"r2_score": float("nan")}, True, "rejected"),
+        ({"r2_score": float("inf")}, True, "rejected"),
+        ({"r2_score": float("-inf")}, True, "rejected"),
+        ({"r2_score": 0.8, "other": float("nan")}, True, "rejected"),
+        ({"r2_score": 0.8}, False, "unchecked"),
+        ({"r2_score": float("nan")}, False, "rejected"),
+    ],
+)
+def test_recorded_metric_acceptance(
+    values: dict[str, float],
+    configured: bool,
+    expected: str,
+    mlflow_service: services.MlflowService,
+    inputs_reader: datasets.ParquetReader,
+    targets_reader: datasets.ParquetReader,
+) -> None:
+    """Exercise the real validator and tracking store without retraining a model."""
+    policy = {"r2_score": metrics.Threshold(threshold=0.5, greater_is_better=True)}
+    job = jobs.EvaluationsJob(
+        mlflow_service=mlflow_service,
+        inputs=inputs_reader,
+        targets=targets_reader,
+        thresholds=policy if configured else {},
+    )
+    result = mlflow.models.EvaluationResult(metrics=values, artifacts={})
+    thresholds = {name: value.to_mlflow() for name, value in job.thresholds.items()}
+    with job:
+        try:
+            with mlflow_service.run_context(job.run_config) as run:
+                job._record_policy()
+                assert (
+                    mlflow_service.client()
+                    .get_run(run.info.run_id)
+                    .data.tags["evaluation.thresholds"]
+                    == "pending"
+                )
+                job._validate_results(result, thresholds)
+        except (ValueError, metrics.MlflowModelValidationFailedException):
+            assert expected == "rejected"
+        recorded = mlflow_service.client().get_run(run.info.run_id)
+        assert recorded.data.tags["evaluation.thresholds"] == expected
+        assert recorded.info.status == ("FAILED" if expected == "rejected" else "FINISHED")
+        saved = mlflow.artifacts.load_dict(f"runs:/{run.info.run_id}/evaluation/thresholds.json")
+        assert saved == {name: value.model_dump() for name, value in job.thresholds.items()}

@@ -144,7 +144,7 @@ class Threshold(abc.ABC, pdt.BaseModel, strict=True, frozen=True, extra="forbid"
         greater_is_better (bool): maximize or minimize result.
     """
 
-    threshold: int | float
+    threshold: int | float = pdt.Field(allow_inf_nan=False)
     greater_is_better: bool
 
     def to_mlflow(self) -> MlflowThreshold:

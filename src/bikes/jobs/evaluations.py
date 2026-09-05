@@ -2,6 +2,7 @@
 
 # %% IMPORTS
 
+import math
 import typing as T
 
 import mlflow
@@ -99,6 +100,33 @@ class EvaluationsJob(base.Job):
         )
         return uri
 
+    def _record_policy(self) -> None:
+        """Persist the configured policy before any data or model operation."""
+        mlflow.set_tag("evaluation.thresholds", "pending")
+        mlflow.log_dict(
+            {name: threshold.model_dump() for name, threshold in self.thresholds.items()},
+            "evaluation/thresholds.json",
+        )
+
+    def _validate_results(
+        self,
+        result: mlflow.models.EvaluationResult,
+        thresholds: dict[str, metrics_.MlflowThreshold],
+    ) -> None:
+        """Reject invalid metrics and record whether a nonempty policy passed.
+
+        This is metric acceptance only. Consumers must also inspect run status,
+        model identity, dataset evidence and the reference boundary separately.
+        """
+        mlflow.set_tag("evaluation.thresholds", "rejected")
+        for name, value in result.metrics.items():
+            if not math.isfinite(value):
+                raise ValueError(f"Evaluation metric {name!r} must be finite.")
+        mlflow.validate_evaluation_results(
+            validation_thresholds=thresholds, candidate_result=result
+        )
+        mlflow.set_tag("evaluation.thresholds", "passed" if thresholds else "unchecked")
+
     @T.override
     def run(self) -> base.Locals:
         # services
@@ -109,6 +137,7 @@ class EvaluationsJob(base.Job):
         client = self.mlflow_service.client()
         logger.info("With client: {}", client.tracking_uri)
         with self.mlflow_service.run_context(run_config=self.run_config) as run:
+            self._record_policy()
             logger.info("With run context: {}", run.info)
             # data
             # - inputs
@@ -177,10 +206,7 @@ class EvaluationsJob(base.Job):
                 evaluators=self.evaluators,
                 extra_metrics=extra_metrics,
             )
-            mlflow.validate_evaluation_results(
-                validation_thresholds=validation_thresholds,
-                candidate_result=evaluations,
-            )
+            self._validate_results(evaluations, validation_thresholds)
             logger.debug("- Evaluations metrics: {}", evaluations.metrics)
             # notify
             self.alerts_service.notify(
