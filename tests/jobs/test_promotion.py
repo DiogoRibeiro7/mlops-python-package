@@ -135,15 +135,33 @@ def test_promotion_evidence(promotion: jobs.PromotionJob, case: str, mocker: Moc
             assert audit.data.tags["promotion.previous_version"] == "1"
             assert audit.data.tags["promotion.evaluation_run_id"] == run_id
             assert audit.data.tags["promotion.status"] == "applied"
+            # Use the actual promotion audit to restore the previous alias.
+            rollback = jobs.RollbackJob(
+                mlflow_service=promotion.mlflow_service,
+                alerts_service=promotion.alerts_service,
+                promotion_run_id=audit.info.run_id,
+                expected_version=2,
+                target_version=1,
+                reason="Exercise promotion and rollback history.",
+            )
+            rollback_out = rollback.run()
+            restored = client.get_run(rollback_out["run"].info.run_id)
+            assert restored.info.status == "FINISHED"
+            assert restored.data.tags["rollback.promotion_run_id"] == audit.info.run_id
+            assert restored.data.tags["rollback.status"] == "applied"
+
         else:
             with pytest.raises((ValueError, mlflow.exceptions.MlflowException)):
                 job.run()
             setter.assert_not_called()
-        assert int(
-            client.get_model_version_by_alias(
-                promotion.mlflow_service.registry_name, "Champion"
-            ).version
-        ) == (2 if case == "valid" else 1)
+        assert (
+            int(
+                client.get_model_version_by_alias(
+                    promotion.mlflow_service.registry_name, "Champion"
+                ).version
+            )
+            == 1
+        )
 
 
 @pytest.mark.parametrize(

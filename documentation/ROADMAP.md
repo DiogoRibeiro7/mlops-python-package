@@ -42,7 +42,8 @@ Acceptance: regression tests reject target-derived features and overlapping spli
 - Completed: require an explicit candidate and a finished matching evaluation with passed threshold/reference checks and operator-selected MLflow dataset digests before an alias write. Recheck a separate nonempty promotion policy.
 - Still open: cryptographically bind full datasets and actual training history to the evidence; enforce store access controls and serialize concurrent promotion.
 - Completed: record the previous alias version and promotion policy in a tracking run.
-- Still open: provide explicit rollback and recover atomically from registry/audit failures.
+- Completed: explicit rollback validates a completed matching promotion, existing prior target and expected current alias; records the restoration and reason. Local tests cover promotion-to-rollback, CLI execution and stale-record rejection.
+- Still open: recover atomically from registry/audit failures and serialize alias writes.
 - Fail clearly for missing versions, non-finite metrics or absent evaluation evidence.
 
 Acceptance: a local MLflow integration test demonstrates rejected promotion, accepted promotion and rollback with traceable evidence.

@@ -86,7 +86,15 @@ uv run bikes confs/promotion.yaml
 
 Promotion requires an active, finished evaluation in the configured experiment. Its recorded model name, version, URI and nonempty source run ID must match the candidate. Both the threshold and reference-boundary checks must have passed, and each expected dataset identity must match exactly one lineage entry. Promotion independently rechecks finite metrics against its own nonempty threshold policy, which defaults to R² ≥ 0.5. Diagnostic or historical runs without this evidence are rejected before any alias write.
 
-A promotion run records the candidate, evaluation run ID, expected digests, promotion policy and previous alias version (empty if unset). Its status becomes `applied` after the registry write. Explicit rollback remains future work.
+A promotion run records the candidate, evaluation run ID, expected digests, promotion policy and previous alias version (empty if unset). Its status becomes `applied` after the registry write.
+
+To restore a previous alias version, fill `confs/rollback.yaml` with the successful promotion run ID, the version expected to be current, the explicit target version and a reason, then run:
+
+```bash
+uv run bikes confs/rollback.yaml
+```
+
+`RollbackJob` checks the promotion’s experiment, completion status, registered model and alias. The target must match its recorded previous version and still exist. The alias must still point to the version installed by that promotion. Stale records, repeated attempts after restoration and promotions with no previous alias are rejected. Rollback records its source promotion, reason, from/to versions and applied status in a separate tracking run. It restores registry routing and does not re-evaluate the old model or establish that it meets the current promotion policy.
 
 This gate trusts the MLflow tracking and registry stores. Their records are mutable, MLflow lineage digests are not cryptographic full-data hashes, and the declared reference still does not prove the model’s training history. Concurrent alias changes are not serialized, and the alias write and tracking audit are not one transaction. If a run fails after the write, inspect the registry before retrying. These limits remain release blockers in the roadmap.
 
