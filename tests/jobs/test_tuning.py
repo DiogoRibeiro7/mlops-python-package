@@ -4,7 +4,7 @@ import _pytest.capture as pc
 
 from bikes import jobs
 from bikes.core import metrics, models, schemas
-from bikes.io import datasets, services
+from bikes.io import datasets, provenance, services
 from bikes.utils import searchers, splitters
 
 # %% JOBS
@@ -44,6 +44,9 @@ def test_tuning_job(
     with job as runner:
         out = runner.run()
     # then
+    fingerprint_tags = mlflow_service.client().get_run(out["run"].info.run_id).data.tags
+    assert fingerprint_tags["data.inputs.sha256"] == provenance.fingerprint(out["inputs"])
+    assert fingerprint_tags["data.targets.sha256"] == provenance.fingerprint(out["targets"])
     # - vars
     assert set(out) == {
         "self",

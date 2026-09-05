@@ -12,7 +12,7 @@ from mlflow.tracking import MlflowClient
 
 from bikes.core import metrics as metrics_
 from bikes.core import schemas
-from bikes.io import datasets, registries, services
+from bikes.io import datasets, provenance, registries, services
 from bikes.jobs import base
 from bikes.utils import splitters
 
@@ -70,6 +70,7 @@ class EvaluationsJob(base.Job):
         mlflow.set_tag("evaluation.boundary", "rejected")
         reference = schemas.InputsSchema.check(self.reference_inputs.read())
         splitters.check_temporal_boundary(reference, inputs)
+        provenance.log_frames({"reference_inputs": reference})
         mlflow.log_input(
             self.reference_inputs.lineage(data=reference, name="reference_inputs"),
             context="evaluation_reference",
@@ -150,6 +151,7 @@ class EvaluationsJob(base.Job):
             targets_ = self.targets.read()  # unchecked!
             targets = schemas.TargetsSchema.check(targets_)
             schemas.check_row_alignment(inputs, targets)
+            provenance.log_frames({"inputs": inputs, "targets": targets})
             self._validate_reference(inputs)
             logger.debug("- Targets shape: {}", targets.shape)
             # lineage

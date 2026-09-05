@@ -10,7 +10,7 @@ from pytest_mock import MockerFixture
 
 from bikes import jobs, scripts
 from bikes.core import metrics, schemas
-from bikes.io import datasets, registries, services
+from bikes.io import datasets, provenance, registries, services
 
 # %% JOBS
 
@@ -100,6 +100,9 @@ def test_evaluations_job(
     with job as runner:
         out = runner.run()
     # then
+    fingerprint_tags = mlflow_service.client().get_run(out["run"].info.run_id).data.tags
+    assert fingerprint_tags["data.inputs.sha256"] == provenance.fingerprint(out["inputs"])
+    assert fingerprint_tags["data.targets.sha256"] == provenance.fingerprint(out["targets"])
     assert (
         out["client"].get_run(out["run"].info.run_id).data.tags["evaluation.boundary"]
         == "unchecked"
@@ -273,6 +276,9 @@ def test_evaluation_reference_boundary(
             run = out["client"].get_run(out["run"].info.run_id)
             assert run.data.tags["evaluation.thresholds"] == "passed"
             assert run.data.tags["evaluation.boundary"] == "passed_against_reference"
+            assert run.data.tags["data.reference_inputs.sha256"] == provenance.fingerprint(
+                reference
+            )
             assert any(
                 item.dataset.name == "reference_inputs" for item in run.inputs.dataset_inputs
             )

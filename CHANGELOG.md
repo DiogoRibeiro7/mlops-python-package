@@ -1,5 +1,7 @@
 # Independent maintenance: unreleased
 
+- Record versioned full-table SHA-256 fingerprints and shape/schema metadata for validated job data, training partitions and evaluation references, with exact-value and format-stability regressions.
+
 - Add explicit audited rollback to the previous alias version recorded by a successful promotion, rejecting stale state, missing targets and incomplete history.
 
 - Require explicit promotion candidates and matching finished evaluation evidence, dataset digests and independently passing metrics. Record the previous alias and policy; stop automatic project execution after training.

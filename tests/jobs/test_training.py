@@ -8,7 +8,7 @@ from mlflow.models.utils import load_serving_example, validate_serving_input
 
 from bikes import jobs
 from bikes.core import metrics, models, schemas
-from bikes.io import datasets, registries, services
+from bikes.io import datasets, provenance, registries, services
 from bikes.utils import signers, splitters
 
 # %% JOBS
@@ -52,6 +52,21 @@ def test_training_job(
     with job as runner:
         out = runner.run()
     # then
+    fingerprint_tags = mlflow_service.client().get_run(out["run"].info.run_id).data.tags
+    assert fingerprint_tags["data.inputs.sha256"] == provenance.fingerprint(out["inputs"])
+    assert fingerprint_tags["data.targets.sha256"] == provenance.fingerprint(out["targets"])
+    assert fingerprint_tags["data.inputs_train.sha256"] == provenance.fingerprint(
+        out["inputs_train"]
+    )
+    assert fingerprint_tags["data.targets_train.sha256"] == provenance.fingerprint(
+        out["targets_train"]
+    )
+    assert fingerprint_tags["data.inputs_validation.sha256"] == provenance.fingerprint(
+        out["inputs_test"]
+    )
+    assert fingerprint_tags["data.targets_validation.sha256"] == provenance.fingerprint(
+        out["targets_test"]
+    )
     # - vars
     assert set(out) == {
         "self",

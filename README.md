@@ -98,6 +98,12 @@ uv run bikes confs/rollback.yaml
 
 This gate trusts the MLflow tracking and registry stores. Their records are mutable, MLflow lineage digests are not cryptographic full-data hashes, and the declared reference still does not prove the model’s training history. Concurrent alias changes are not serialized, and the alias write and tracking audit are not one transaction. If a run fails after the write, inspect the registry before retrying. These limits remain release blockers in the roadmap.
 
+## Full-table fingerprints
+
+Training, tuning and evaluation now record SHA-256 fingerprints of every validated row, including row IDs, ordered columns and dtypes. Training also records its fitting and internal validation partitions; evaluation records a supplied reference after its boundary check succeeds. Each role has `data.<role>.sha256` and `data.<role>.format` tags plus a `provenance/<role>.json` metadata artifact.
+
+These fingerprints describe the model-ready tables after schema conversion, including Float16 weather values and removal of legacy target components. They are separate from source-file hashes and MLflow’s lineage digests. The promotion gate still uses the latter; requiring full-table fingerprints and verifying the reference against the model’s source-run history remain open. See the [encoding contract and limitations](documentation/DATA_FINGERPRINTS.md).
+
 ## Known limitations
 
 The model estimates hourly rental count (`cnt`) using calendar fields and observed weather for that hour. This is a retrospective estimation example, not a validated advance forecast: a prediction horizon and weather availability at prediction time still need to be defined. Removing `casual` and `registered` fixes direct target-component leakage only.

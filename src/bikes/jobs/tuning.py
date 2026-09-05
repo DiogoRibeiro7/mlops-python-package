@@ -8,7 +8,7 @@ import mlflow
 import pydantic as pdt
 
 from bikes.core import metrics, models, schemas
-from bikes.io import datasets, services
+from bikes.io import datasets, provenance, services
 from bikes.jobs import base
 from bikes.utils import searchers, splitters
 
@@ -73,6 +73,7 @@ class TuningJob(base.Job):
             targets_ = self.targets.read()  # unchecked!
             targets = schemas.TargetsSchema.check(targets_)
             schemas.check_row_alignment(inputs, targets)
+            provenance.log_frames({"inputs": inputs, "targets": targets})
             logger.debug("- Targets shape: {}", targets.shape)
             # lineage
             # - inputs
