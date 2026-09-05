@@ -144,6 +144,7 @@ class BaselineSklearnModel(Model):
     @T.override
     def fit(self, inputs: schemas.Inputs, targets: schemas.Targets) -> "BaselineSklearnModel":
         inputs = schemas.InputsSchema.check(inputs)
+        schemas.check_row_alignment(inputs, targets)
         # subcomponents
         categoricals_transformer = preprocessing.OneHotEncoder(
             sparse_output=False, handle_unknown="ignore"

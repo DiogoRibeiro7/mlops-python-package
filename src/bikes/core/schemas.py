@@ -126,3 +126,17 @@ class FeatureImportancesSchema(Schema):
 
 
 FeatureImportances = papd.DataFrame[FeatureImportancesSchema]
+
+
+def check_row_alignment(left: pd.DataFrame, right: pd.DataFrame) -> None:
+    """Require nonempty, unique row IDs in exactly the same order.
+
+    Validate before positional fitting/scoring or index-based concatenation.
+    This function never sorts, reindexes or mutates either dataframe.
+    """
+    if left.empty or right.empty:
+        raise ValueError("Aligned datasets must be nonempty.")
+    if not left.index.is_unique or not right.index.is_unique:
+        raise ValueError("Aligned datasets must have unique row IDs.")
+    if not left.index.equals(right.index):
+        raise ValueError("Dataset row IDs must match in the same order.")

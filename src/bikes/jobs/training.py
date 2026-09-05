@@ -75,6 +75,7 @@ class TrainingJob(base.Job):
             logger.info("Read targets: {}", self.targets)
             targets_ = self.targets.read()  # unchecked!
             targets = schemas.TargetsSchema.check(targets_)
+            schemas.check_row_alignment(inputs, targets)
             logger.debug("- Targets shape: {}", targets.shape)
             # lineage
             # - inputs

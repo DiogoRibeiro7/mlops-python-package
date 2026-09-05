@@ -118,6 +118,7 @@ class SklearnMetric(Metric):
 
     @T.override
     def score(self, targets: schemas.Targets, outputs: schemas.Outputs) -> float:
+        schemas.check_row_alignment(targets, outputs)
         metric = getattr(sklearn_metrics, self.name)
         sign = 1 if self.greater_is_better else -1
         y_true = targets[schemas.TargetsSchema.cnt]
