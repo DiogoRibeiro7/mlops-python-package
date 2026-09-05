@@ -151,8 +151,8 @@ class EvaluationsJob(base.Job):
             targets_ = self.targets.read()  # unchecked!
             targets = schemas.TargetsSchema.check(targets_)
             schemas.check_row_alignment(inputs, targets)
-            provenance.log_frames({"inputs": inputs, "targets": targets})
             self._validate_reference(inputs)
+            provenance.log_frames({"inputs": inputs, "targets": targets})
             logger.debug("- Targets shape: {}", targets.shape)
             # lineage
             # - inputs
