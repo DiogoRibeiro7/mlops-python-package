@@ -8,3 +8,5 @@ job:
     KIND: ParquetReader
     path: "${tests_path:}/data/targets_sample.parquet"
     limit: 1500
+  # CLI smoke test only; threshold acceptance/rejection is covered in job tests.
+  thresholds: {}
