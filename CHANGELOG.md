@@ -1,5 +1,9 @@
 # Independent maintenance: unreleased
 
+- Enforce evaluation thresholds through MLflow’s explicit validation API and make the inherited rejection regression strict.
+
+- Evaluate the example on separate test files and validate an optional development reference for disjoint IDs and later calendar hours, recording boundary status and reference lineage in MLflow.
+
 - Reject unaligned or duplicate row IDs before fitting/scoring and unordered or duplicate calendar hours before splitting. Disallow shuffling and invalid time-series split configuration; document observation-based gaps.
 
 - Verify registered custom-model inference with positional indices and the training job’s saved JSON serving example in split and records formats.

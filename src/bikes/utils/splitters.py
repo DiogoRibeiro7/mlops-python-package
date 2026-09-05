@@ -2,6 +2,8 @@
 
 # %% IMPORTS
 
+from __future__ import annotations
+
 import abc
 import typing as T
 
@@ -27,6 +29,12 @@ def check_chronological_inputs(inputs: schemas.Inputs, targets: schemas.Targets)
     hours. Source IDs identify rows; they do not establish chronological order.
     """
     schemas.check_row_alignment(inputs, targets)
+    _calendar_hours(inputs)
+
+
+def _calendar_hours(inputs: schemas.Inputs) -> pd.Series[pd.Timestamp]:
+    """Validate a dataset and return its strictly ordered calendar hours."""
+    schemas.check_row_alignment(inputs, inputs)
     checked = schemas.InputsSchema.check(inputs)
     dates = checked["dteday"]
     if not dates.eq(dates.dt.normalize()).all():
@@ -34,6 +42,21 @@ def check_chronological_inputs(inputs: schemas.Inputs, targets: schemas.Targets)
     timestamps = dates + pd.to_timedelta(checked["hr"].astype("int64"), unit="h")
     if not timestamps.is_unique or not timestamps.is_monotonic_increasing:
         raise ValueError("Calendar hours must be unique and strictly increasing.")
+
+    return timestamps
+
+
+def check_temporal_boundary(reference: schemas.Inputs, evaluation: schemas.Inputs) -> None:
+    """Require evaluation IDs to be disjoint and all hours later than the reference.
+
+    This checks supplied datasets, not a registered model’s training provenance.
+    """
+    reference_hours = _calendar_hours(reference)
+    evaluation_hours = _calendar_hours(evaluation)
+    if not reference.index.intersection(evaluation.index).empty:
+        raise ValueError("Reference and evaluation row IDs must be disjoint.")
+    if reference_hours.iloc[-1] >= evaluation_hours.iloc[0]:
+        raise ValueError("Evaluation hours must be strictly later than all reference hours.")
 
 
 # %% SPLITTERS

@@ -12,6 +12,7 @@ from bikes.core import metrics as metrics_
 from bikes.core import schemas
 from bikes.io import datasets, registries, services
 from bikes.jobs import base
+from bikes.utils import splitters
 
 # %% JOBS
 
@@ -23,6 +24,7 @@ class EvaluationsJob(base.Job):
         run_config (services.MlflowService.RunConfig): mlflow run config.
         inputs (datasets.ReaderKind): reader for the inputs data.
         targets (datasets.ReaderKind): reader for the targets data.
+        reference_inputs (datasets.ReaderKind | None): declared development inputs for boundary checks.
         model_type (str): model type (e.g. "regressor", "classifier").
         alias_or_version (str | int): alias or version for the  model.
         metrics (metrics_.MetricsKind): metric list to compute.
@@ -39,6 +41,7 @@ class EvaluationsJob(base.Job):
     # Data
     inputs: datasets.ReaderKind = pdt.Field(..., discriminator="KIND")
     targets: datasets.ReaderKind = pdt.Field(..., discriminator="KIND")
+    reference_inputs: datasets.ReaderKind | None = pdt.Field(None, discriminator="KIND")
     # Model
     model_type: str = "regressor"
     alias_or_version: str | int = "Champion"
@@ -52,6 +55,24 @@ class EvaluationsJob(base.Job):
     thresholds: dict[str, metrics_.Threshold] = {
         "r2_score": metrics_.Threshold(threshold=0.5, greater_is_better=True)
     }
+
+    def _validate_reference(self, inputs: schemas.Inputs) -> None:
+        """Record whether the supplied evaluation/reference boundary passed.
+
+        Missing references retain diagnostic evaluation compatibility and are
+        explicitly marked unchecked. A supplied invalid reference always fails.
+        """
+        mlflow.set_tag("evaluation.boundary", "unchecked")
+        if self.reference_inputs is None:
+            return
+        mlflow.set_tag("evaluation.boundary", "rejected")
+        reference = schemas.InputsSchema.check(self.reference_inputs.read())
+        splitters.check_temporal_boundary(reference, inputs)
+        mlflow.log_input(
+            self.reference_inputs.lineage(data=reference, name="reference_inputs"),
+            context="evaluation_reference",
+        )
+        mlflow.set_tag("evaluation.boundary", "passed_against_reference")
 
     @T.override
     def run(self) -> base.Locals:
@@ -75,6 +96,7 @@ class EvaluationsJob(base.Job):
             targets_ = self.targets.read()  # unchecked!
             targets = schemas.TargetsSchema.check(targets_)
             schemas.check_row_alignment(inputs, targets)
+            self._validate_reference(inputs)
             logger.debug("- Targets shape: {}", targets.shape)
             # lineage
             # - inputs
@@ -132,7 +154,10 @@ class EvaluationsJob(base.Job):
                 model_type=self.model_type,
                 evaluators=self.evaluators,
                 extra_metrics=extra_metrics,
+            )
+            mlflow.validate_evaluation_results(
                 validation_thresholds=validation_thresholds,
+                candidate_result=evaluations,
             )
             logger.debug("- Evaluations metrics: {}", evaluations.metrics)
             # notify
