@@ -36,11 +36,11 @@ Acceptance: regression tests reject target-derived features and overlapping spli
 
 ## 4. Auditable promotion
 
-- Bind dataset hashes, split membership, configuration, code revision and environment to each run.
+- Completed: record versioned full-table SHA-256 fingerprints for validated training/tuning/evaluation data, fitting/validation partitions and supplied evaluation references.
 - Completed: evaluation resolves a selector once, loads the version URI and records the model identity and source run ID; an alias-movement regression checks version stability.
 - Completed: persist the evaluation threshold policy and explicit acceptance status; reject non-finite policy bounds and reported metrics, and mark empty policies unchecked.
 - Completed: require an explicit candidate and a finished matching evaluation with passed threshold/reference checks and operator-selected MLflow dataset digests before an alias write. Recheck a separate nonempty promotion policy.
-- Still open: cryptographically bind full datasets and actual training history to the evidence; enforce store access controls and serialize concurrent promotion.
+- Still open: bind full-table hashes to verified training history, tuning folds, configuration, code revision and environment, require them during promotion, and enforce store access controls.
 - Completed: record the previous alias version and promotion policy in a tracking run.
 - Completed: explicit rollback validates a completed matching promotion, existing prior target and expected current alias; records the restoration and reason. Local tests cover promotion-to-rollback, CLI execution and stale-record rejection.
 - Still open: recover atomically from registry/audit failures and serialize alias writes.

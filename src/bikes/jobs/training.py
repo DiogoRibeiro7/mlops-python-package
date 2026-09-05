@@ -9,7 +9,7 @@ import pydantic as pdt
 
 from bikes.core import metrics as metrics_
 from bikes.core import models, schemas
-from bikes.io import datasets, registries, services
+from bikes.io import datasets, provenance, registries, services
 from bikes.jobs import base
 from bikes.utils import signers, splitters
 
@@ -104,6 +104,16 @@ class TrainingJob(base.Job):
             targets_test = T.cast(schemas.Targets, targets.iloc[test_index])
             logger.debug("- Targets train shape: {}", targets_train.shape)
             logger.debug("- Targets test shape: {}", targets_test.shape)
+            provenance.log_frames(
+                {
+                    "inputs": inputs,
+                    "targets": targets,
+                    "inputs_train": inputs_train,
+                    "targets_train": targets_train,
+                    "inputs_validation": inputs_test,
+                    "targets_validation": targets_test,
+                }
+            )
             # model
             logger.info("Fit model: {}", self.model)
             self.model.fit(inputs=inputs_train, targets=targets_train)
