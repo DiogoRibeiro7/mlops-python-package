@@ -1,5 +1,6 @@
 # %% IMPORTS
 
+from contextlib import ExitStack, nullcontext
 from pathlib import Path
 
 import _pytest.capture as pc
@@ -331,19 +332,24 @@ def test_recorded_metric_acceptance(
     )
     result = mlflow.models.EvaluationResult(metrics=values, artifacts={})
     thresholds = {name: value.to_mlflow() for name, value in job.thresholds.items()}
-    with job:
-        with mlflow_service.run_context(job.run_config) as run:
-            job._record_policy()
-            assert (
-                mlflow_service.client().get_run(run.info.run_id).data.tags["evaluation.thresholds"]
-                == "pending"
-            )
-            if expected == "rejected":
-                with pytest.raises((ValueError, metrics.MlflowModelValidationFailedException)):
-                    job._validate_results(result, thresholds)
-            else:
-                job._validate_results(result, thresholds)
+    with job, ExitStack() as setup:
+        run = setup.enter_context(mlflow_service.run_context(job.run_config))
+        job._record_policy()
+        assert (
+            mlflow_service.client().get_run(run.info.run_id).data.tags["evaluation.thresholds"]
+            == "pending"
+        )
+        expectation = (
+            pytest.raises((ValueError, metrics.MlflowModelValidationFailedException))
+            if expected == "rejected"
+            else nullcontext()
+        )
+        # Transfer run cleanup only after setup succeeds. Validation exceptions
+        # reach MLflow before pytest catches them, so rejected runs become FAILED.
+        with expectation, setup.pop_all():
+            job._validate_results(result, thresholds)
         recorded = mlflow_service.client().get_run(run.info.run_id)
         assert recorded.data.tags["evaluation.thresholds"] == expected
+        assert recorded.info.status == ("FAILED" if expected == "rejected" else "FINISHED")
         saved = mlflow.artifacts.load_dict(f"runs:/{run.info.run_id}/evaluation/thresholds.json")
         assert saved == {name: value.model_dump() for name, value in job.thresholds.items()}
