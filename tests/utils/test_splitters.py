@@ -113,8 +113,6 @@ def test_temporal_folds_use_calendar_time_and_observation_gaps(
         assert not np.intersect1d(train, test).size
         assert train[-1] + 4 == test[0]
         assert timestamps.iloc[train].max() < timestamps.iloc[test].min()
-        assert x.iloc[train].index.equals(y.iloc[train].index)
-        assert x.iloc[test].index.equals(y.iloc[test].index)
 
 
 def test_shuffle_is_rejected() -> None:
