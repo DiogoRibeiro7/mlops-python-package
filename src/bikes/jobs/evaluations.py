@@ -7,6 +7,7 @@ import typing as T
 import mlflow
 import pandas as pd
 import pydantic as pdt
+from mlflow.tracking import MlflowClient
 
 from bikes.core import metrics as metrics_
 from bikes.core import schemas
@@ -74,6 +75,30 @@ class EvaluationsJob(base.Job):
         )
         mlflow.set_tag("evaluation.boundary", "passed_against_reference")
 
+    def _resolve_model_uri(self, client: MlflowClient) -> str:
+        """Resolve once and record the version that the loader will actually receive.
+
+        Source run IDs may be absent for externally registered models. Recording
+        that absence does not establish any training-data provenance.
+        """
+        name = self.mlflow_service.registry_name
+        requested = self.alias_or_version
+        if isinstance(requested, int):
+            version = client.get_model_version(name=name, version=str(requested))
+        else:
+            version = client.get_model_version_by_alias(name=name, alias=requested)
+        uri = registries.uri_for_model_version(name=name, version=int(version.version))
+        mlflow.set_tags(
+            {
+                "evaluation.model_name": name,
+                "evaluation.model_version": str(version.version),
+                "evaluation.model_uri": uri,
+                "evaluation.model_source_run_id": version.run_id or "",
+                "evaluation.model_requested": str(requested),
+            }
+        )
+        return uri
+
     @T.override
     def run(self) -> base.Locals:
         # services
@@ -113,10 +138,7 @@ class EvaluationsJob(base.Job):
             logger.debug("- Targets lineage: {}", targets_lineage.to_dict())
             # model
             logger.info("With model: {}", self.mlflow_service.registry_name)
-            model_uri = registries.uri_for_model_alias_or_version(
-                name=self.mlflow_service.registry_name,
-                alias_or_version=self.alias_or_version,
-            )
+            model_uri = self._resolve_model_uri(client)
             logger.debug("- Model URI: {}", model_uri)
             # loader
             logger.info("Load model: {}", self.loader)

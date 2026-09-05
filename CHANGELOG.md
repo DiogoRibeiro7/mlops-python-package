@@ -1,5 +1,7 @@
 # Independent maintenance: unreleased
 
+- Resolve evaluation model aliases once, load the version URI and record model identity/source run tags, with an alias-movement integration regression.
+
 - Enforce evaluation thresholds through MLflow’s explicit validation API and make the inherited rejection regression strict.
 
 - Evaluate the example on separate test files and validate an optional development reference for disjoint IDs and later calendar hours, recording boundary status and reference lineage in MLflow.
