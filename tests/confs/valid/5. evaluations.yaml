@@ -1,5 +1,6 @@
 job:
   KIND: EvaluationsJob
+  alias_or_version: 1
   inputs:
     KIND: ParquetReader
     path: "${tests_path:}/data/inputs_sample.parquet"

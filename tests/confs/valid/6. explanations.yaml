@@ -1,5 +1,6 @@
 job:
   KIND: ExplanationsJob
+  alias_or_version: 1
   inputs_samples:
     KIND: ParquetReader
     path: "${tests_path:}/data/inputs_sample.parquet"

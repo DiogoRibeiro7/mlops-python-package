@@ -1,5 +1,9 @@
 # Independent maintenance: unreleased
 
+- Require explicit promotion candidates and matching finished evaluation evidence, dataset digests and independently passing metrics. Record the previous alias and policy; stop automatic project execution after training.
+
+- Narrow the evaluation acceptance regression’s exception scope to the validation call.
+
 - Persist evaluation threshold policies and acceptance status. Reject non-finite threshold values and evaluation metrics; distinguish diagnostic runs with empty policies from passed evaluations.
 
 - Resolve evaluation model aliases once, load the version URI and record model identity/source run tags, with an alias-movement integration regression.

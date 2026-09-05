@@ -1,5 +1,6 @@
 # %% IMPORTS
 
+from contextlib import ExitStack, nullcontext
 from pathlib import Path
 
 import _pytest.capture as pc
@@ -7,7 +8,7 @@ import mlflow
 import pytest
 from pytest_mock import MockerFixture
 
-from bikes import jobs
+from bikes import jobs, scripts
 from bikes.core import metrics, schemas
 from bikes.io import datasets, registries, services
 
@@ -247,7 +248,9 @@ def test_evaluation_reference_boundary(
         reference_inputs=datasets.ParquetReader(path=str(reference_path)),
         run_config=mlflow_service.RunConfig(name="ReferenceBoundaryTest"),
         alias_or_version=model_alias.aliases[0],
-        thresholds={},
+        thresholds={
+            "mean_squared_error": metrics.Threshold(threshold=1e12, greater_is_better=False)
+        },
     )
     with job as runner:
         if overlap:
@@ -268,11 +271,33 @@ def test_evaluation_reference_boundary(
             out = runner.run()
             loader.assert_called_once()
             run = out["client"].get_run(out["run"].info.run_id)
-            assert run.data.tags["evaluation.thresholds"] == "unchecked"
+            assert run.data.tags["evaluation.thresholds"] == "passed"
             assert run.data.tags["evaluation.boundary"] == "passed_against_reference"
             assert any(
                 item.dataset.name == "reference_inputs" for item in run.inputs.dataset_inputs
             )
+            promotion = jobs.PromotionJob(
+                mlflow_service=mlflow_service,
+                alerts_service=alerts_service,
+                version=int(model_alias.version),
+                evaluation_run_id=run.info.run_id,
+                dataset_digests=jobs.PromotionJob.DatasetDigests.model_validate(
+                    {
+                        item.dataset.name: item.dataset.digest
+                        for item in run.inputs.dataset_inputs
+                        if item.dataset.name in {"inputs", "targets", "reference_inputs"}
+                    }
+                ),
+                thresholds=job.thresholds,
+            )
+            config_path = tmp_path / "promotion.json"
+            config_path.write_text('{"job":' + promotion.model_dump_json() + "}", encoding="utf-8")
+            assert scripts.main([str(config_path)]) == 0
+            assert int(
+                mlflow_service.client()
+                .get_model_version_by_alias(mlflow_service.registry_name, "Champion")
+                .version
+            ) == int(model_alias.version)
 
 
 @pytest.mark.parametrize(
@@ -307,19 +332,22 @@ def test_recorded_metric_acceptance(
     )
     result = mlflow.models.EvaluationResult(metrics=values, artifacts={})
     thresholds = {name: value.to_mlflow() for name, value in job.thresholds.items()}
-    with job:
-        try:
-            with mlflow_service.run_context(job.run_config) as run:
-                job._record_policy()
-                assert (
-                    mlflow_service.client()
-                    .get_run(run.info.run_id)
-                    .data.tags["evaluation.thresholds"]
-                    == "pending"
-                )
-                job._validate_results(result, thresholds)
-        except (ValueError, metrics.MlflowModelValidationFailedException):
-            assert expected == "rejected"
+    with job, ExitStack() as setup:
+        run = setup.enter_context(mlflow_service.run_context(job.run_config))
+        job._record_policy()
+        assert (
+            mlflow_service.client().get_run(run.info.run_id).data.tags["evaluation.thresholds"]
+            == "pending"
+        )
+        expectation = (
+            pytest.raises((ValueError, metrics.MlflowModelValidationFailedException))
+            if expected == "rejected"
+            else nullcontext()
+        )
+        # Transfer run cleanup only after setup succeeds. Validation exceptions
+        # reach MLflow before pytest catches them, so rejected runs become FAILED.
+        with expectation, setup.pop_all():
+            job._validate_results(result, thresholds)
         recorded = mlflow_service.client().get_run(run.info.run_id)
         assert recorded.data.tags["evaluation.thresholds"] == expected
         assert recorded.info.status == ("FAILED" if expected == "rejected" else "FINISHED")
