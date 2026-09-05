@@ -12,6 +12,7 @@ def test_infer_signer(inputs: schemas.Inputs, outputs: schemas.Outputs) -> None:
     # when
     signature = signer.sign(inputs=inputs, outputs=outputs)
     # then
+    assert not {"casual", "registered", "cnt"}.intersection(signature.inputs.input_names())
     assert set(signature.inputs.input_names()) == set(inputs.columns), (
         "Signature inputs should contain input column names."
     )

@@ -1,5 +1,7 @@
 # Independent maintenance: unreleased
 
+- Remove target components from package model features and required inputs; filter legacy count columns and test prediction invariance. Existing registered models require retraining.
+
 - Add a Linux/Python 3.13 installed-wheel CI gate with runtime dependency checks, source isolation, and both CLI entry points.
 
 - Generate consistent runtime environment exports from uv.lock, retaining platform markers and excluding default development groups.

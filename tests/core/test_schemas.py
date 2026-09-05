@@ -1,5 +1,9 @@
 # %% IMPORTS
 
+import pandas as pd
+import pandera as pa
+import pytest
+
 from bikes.core import models, schemas
 from bikes.io import datasets
 
@@ -53,3 +57,17 @@ def test_feature_importances_schema(model: models.Model) -> None:
     data = model.explain_model()
     # then
     assert schema.check(data) is not None, "Feature importance data should be valid!"
+
+
+@pytest.mark.parametrize("column", ["casual", "registered"])
+def test_inputs_schema_removes_legacy_counts(inputs: schemas.Inputs, column: str) -> None:
+    legacy = inputs.assign(**{column: 123})
+    checked = schemas.InputsSchema.check(legacy)
+    pd.testing.assert_frame_equal(checked, inputs)
+    assert column in legacy.columns, "Validation must not mutate the caller!"
+
+
+@pytest.mark.parametrize("column", ["cnt", "unexpected"])
+def test_inputs_schema_rejects_other_extra_columns(inputs: schemas.Inputs, column: str) -> None:
+    with pytest.raises(pa.errors.SchemaError):
+        schemas.InputsSchema.check(inputs.assign(**{column: 123}))
