@@ -97,12 +97,16 @@ def test_evaluations_job(
         metrics=[metric],
         thresholds=thresholds,
     )
+    expected_inputs_hash = provenance.fingerprint(schemas.InputsSchema.check(inputs_reader.read()))
+    expected_targets_hash = provenance.fingerprint(
+        schemas.TargetsSchema.check(targets_reader.read())
+    )
     with job as runner:
         out = runner.run()
     # then
     fingerprint_tags = mlflow_service.client().get_run(out["run"].info.run_id).data.tags
-    assert fingerprint_tags["data.inputs.sha256"] == provenance.fingerprint(out["inputs"])
-    assert fingerprint_tags["data.targets.sha256"] == provenance.fingerprint(out["targets"])
+    assert fingerprint_tags["data.inputs.sha256"] == expected_inputs_hash
+    assert fingerprint_tags["data.targets.sha256"] == expected_targets_hash
     assert (
         out["client"].get_run(out["run"].info.run_id).data.tags["evaluation.boundary"]
         == "unchecked"
@@ -270,6 +274,10 @@ def test_evaluation_reference_boundary(
             assert len(runs) == 1
             assert runs[0].info.status == "FAILED"
             assert runs[0].data.tags["evaluation.boundary"] == "rejected"
+            assert not any(key.startswith("data.") for key in runs[0].data.tags)
+            assert not any(
+                item.path == "provenance" for item in client.list_artifacts(runs[0].info.run_id)
+            )
         else:
             out = runner.run()
             loader.assert_called_once()
