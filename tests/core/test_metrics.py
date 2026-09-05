@@ -78,3 +78,10 @@ def test_score_rejects_misaligned_outputs(
     metric = metrics.SklearnMetric()
     with pytest.raises(ValueError, match="same order"):
         metric.score(targets, T.cast(schemas.Outputs, outputs.iloc[::-1]))
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_threshold_requires_finite_value(value: float) -> None:
+    """A non-finite policy cannot provide an auditable acceptance bound."""
+    with pytest.raises(ValueError, match="finite"):
+        metrics.Threshold(threshold=value, greater_is_better=True)

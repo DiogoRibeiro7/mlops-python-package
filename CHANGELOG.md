@@ -1,5 +1,7 @@
 # Independent maintenance: unreleased
 
+- Persist evaluation threshold policies and acceptance status. Reject non-finite threshold values and evaluation metrics; distinguish diagnostic runs with empty policies from passed evaluations.
+
 - Resolve evaluation model aliases once, load the version URI and record model identity/source run tags, with an alias-movement integration regression.
 
 - Enforce evaluation thresholds through MLflow’s explicit validation API and make the inherited rejection regression strict.
