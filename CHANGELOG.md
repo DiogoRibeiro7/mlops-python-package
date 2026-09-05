@@ -1,5 +1,7 @@
 # Independent maintenance: unreleased
 
+- Verify registered custom-model inference with positional indices and the training job’s saved JSON serving example in split and records formats.
+
 - Remove target components from package model features and required inputs; filter legacy count columns and test prediction invariance. Existing registered models require retraining.
 
 - Add a Linux/Python 3.13 installed-wheel CI gate with runtime dependency checks, source isolation, and both CLI entry points.

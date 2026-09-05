@@ -1,5 +1,9 @@
 # %% IMPORTS
 
+import typing as T
+
+import pandas as pd
+
 from bikes.core import models, schemas
 from bikes.io import registries, services
 from bikes.utils import signers
@@ -68,6 +72,12 @@ def test_custom_pipeline(
     model_uri = registries.uri_for_model_version(name=name, version=version.version)
     adapter = loader.load(uri=model_uri)
     outputs = adapter.predict(inputs=inputs)
+    # Transport requests have positional row indices, not source dataset IDs.
+    positional = T.cast(schemas.Inputs, inputs.reset_index(drop=True))
+    positional_outputs = adapter.predict(inputs=positional)
+    pd.testing.assert_frame_equal(
+        positional_outputs.reset_index(drop=True), outputs.reset_index(drop=True)
+    )
     # then
     # - uri
     assert model_uri == f"models:/{name}/{version.version}", "The model URI should be valid!"
