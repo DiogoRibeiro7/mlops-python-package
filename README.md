@@ -10,7 +10,7 @@ The development goal is reproducible training and auditable model promotion. The
 
 ## What has changed here
 
-The independent work so far establishes maintenance ownership, removes automatic upstream synchronization, corrects repository and publishing links, and documents the inherited limitations. Runtime environment exports now come from the uv lockfile with a CI freshness check and preserved platform markers.
+The independent work so far establishes maintenance ownership, removes automatic upstream synchronization, corrects repository and publishing links, and documents the inherited limitations. Runtime environment exports now come from the uv lockfile with a CI freshness check and preserved platform markers. A separate Linux/Python 3.13 job builds the wheel, installs it in a clean runtime environment, checks dependency consistency, and verifies package origin plus CLI help and JSON schema output outside the checkout.
 
 Target leakage, independent evaluation and evidence-based promotion remain open work. These are goals, not delivered capabilities. The [roadmap](documentation/ROADMAP.md) defines their acceptance criteria, and [ATTRIBUTION.md](ATTRIBUTION.md) records the starting point.
 
@@ -53,7 +53,7 @@ python scripts/export_environment.py
 python scripts/export_environment.py --check
 ```
 
-Both exports exclude default development groups and retain platform conditions. This aligns them with the existing MLflow 2.20.3 baseline; it is not a dependency security upgrade. The pending dependency update requires a separate compatibility review. Clean wheel and container installation still need dedicated validation.
+Both exports exclude default development groups and retain platform conditions. This aligns them with the existing MLflow 2.20.3 baseline; it is not a dependency security upgrade. The pending dependency update requires a separate compatibility review. The wheel smoke check covers imports and CLI startup on Linux/Python 3.13. It does not establish model quality, full job execution, other operating systems or container correctness. Container validation remains open.
 
 ## Structure
 
@@ -74,7 +74,7 @@ The current bike model includes `casual` and `registered`, the components of the
 
 The default evaluation configuration reads training data. Promotion selects the latest version when none is supplied and changes the Champion alias without requiring passing evaluation evidence. The inherited `just project` sequence promotes before evaluating. Do not use that sequence to approve a deployment.
 
-Release publishing remains manual while scientific validation, dependency security review and installation verification are incomplete. Dispatching Publish writes documentation to `gh-pages` and publishes a container under `ghcr.io/diogoribeiro7/mlops-python-package`; it should only be run after the release gates in the roadmap pass. Hosted documentation is not assumed to be configured.
+Release publishing remains manual while scientific validation, dependency security review and container validation are incomplete. Dispatching Publish writes documentation to `gh-pages` and publishes a container under `ghcr.io/diogoribeiro7/mlops-python-package`; it should only be run after the release gates in the roadmap pass. Hosted documentation is not assumed to be configured.
 
 See the [roadmap](documentation/ROADMAP.md) for acceptance criteria and implementation order.
 
