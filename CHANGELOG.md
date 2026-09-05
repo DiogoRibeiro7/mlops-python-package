@@ -1,5 +1,7 @@
 # Independent maintenance: unreleased
 
+- Reject unaligned or duplicate row IDs before fitting/scoring and unordered or duplicate calendar hours before splitting. Disallow shuffling and invalid time-series split configuration; document observation-based gaps.
+
 - Verify registered custom-model inference with positional indices and the training job’s saved JSON serving example in split and records formats.
 
 - Remove target components from package model features and required inputs; filter legacy count columns and test prediction invariance. Existing registered models require retraining.

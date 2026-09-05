@@ -119,3 +119,11 @@ def test_baseline_ignores_target_components(
     )
     features = legacy.explain_model()["feature"]
     assert not features.str.contains("casual|registered|cnt").any()
+
+
+def test_fit_rejects_misaligned_targets(inputs: schemas.Inputs, targets: schemas.Targets) -> None:
+    model = models.BaselineSklearnModel(n_estimators=1)
+    with pytest.raises(ValueError, match="same order"):
+        model.fit(inputs, T.cast(schemas.Targets, targets.iloc[::-1]))
+    with pytest.raises(ValueError, match="not fitted"):
+        model.get_internal_model()

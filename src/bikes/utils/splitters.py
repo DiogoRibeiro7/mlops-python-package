@@ -7,6 +7,7 @@ import typing as T
 
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 import pydantic as pdt
 from sklearn import model_selection
 
@@ -17,6 +18,23 @@ from bikes.core import schemas
 Index = npt.NDArray[np.int64]
 TrainTestIndex = tuple[Index, Index]
 TrainTestSplits = T.Iterator[TrainTestIndex]
+
+
+def check_chronological_inputs(inputs: schemas.Inputs, targets: schemas.Targets) -> None:
+    """Reject unaligned rows and require strictly increasing calendar hours.
+
+    Missing hours are allowed. Split sizes and gaps count observations, not elapsed
+    hours. Source IDs identify rows; they do not establish chronological order.
+    """
+    schemas.check_row_alignment(inputs, targets)
+    checked = schemas.InputsSchema.check(inputs)
+    dates = checked["dteday"]
+    if not dates.eq(dates.dt.normalize()).all():
+        raise ValueError("dteday must contain dates at midnight; hr supplies the hour.")
+    timestamps = dates + pd.to_timedelta(checked["hr"].astype("int64"), unit="h")
+    if not timestamps.is_unique or not timestamps.is_monotonic_increasing:
+        raise ValueError("Calendar hours must be unique and strictly increasing.")
+
 
 # %% SPLITTERS
 
@@ -73,15 +91,15 @@ class TrainTestSplitter(Splitter):
     """Split a dataframe into a train and test set.
 
     Parameters:
-        shuffle (bool): shuffle the dataset. Default is False.
+        shuffle (bool): must be False for the chronological bike example.
         test_size (int | float): number/ratio for the test set.
         random_state (int): random state for the splitter object.
     """
 
     KIND: T.Literal["TrainTestSplitter"] = "TrainTestSplitter"
 
-    shuffle: bool = False  # required (time sensitive)
-    test_size: int | float = 24 * 30 * 2  # 2 months
+    shuffle: T.Literal[False] = False
+    test_size: int | float = 24 * 30 * 2  # 1440 observations
     random_state: int = 42
 
     @T.override
@@ -91,6 +109,7 @@ class TrainTestSplitter(Splitter):
         targets: schemas.Targets,
         groups: Index | None = None,
     ) -> TrainTestSplits:
+        check_chronological_inputs(inputs, targets)
         index = np.arange(len(inputs))  # return integer position
         train_index, test_index = model_selection.train_test_split(
             index,
@@ -114,16 +133,16 @@ class TimeSeriesSplitter(Splitter):
     """Split a dataframe into fixed time series subsets.
 
     Parameters:
-        gap (int): gap between splits.
+        gap (int): number of observations excluded between train and test.
         n_splits (int): number of split to generate.
-        test_size (int | float): number or ratio for the test dataset.
+        test_size (int): number of observations in each test fold.
     """
 
     KIND: T.Literal["TimeSeriesSplitter"] = "TimeSeriesSplitter"
 
-    gap: int = 0
-    n_splits: int = 4
-    test_size: int | float = 24 * 30 * 2  # 2 months
+    gap: int = pdt.Field(default=0, ge=0)
+    n_splits: int = pdt.Field(default=4, ge=2)
+    test_size: int = pdt.Field(default=24 * 30 * 2, gt=0)
 
     @T.override
     def split(
@@ -132,6 +151,7 @@ class TimeSeriesSplitter(Splitter):
         targets: schemas.Targets,
         groups: Index | None = None,
     ) -> TrainTestSplits:
+        check_chronological_inputs(inputs, targets)
         splitter = model_selection.TimeSeriesSplit(
             n_splits=self.n_splits, test_size=self.test_size, gap=self.gap
         )

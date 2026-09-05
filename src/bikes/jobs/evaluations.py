@@ -74,6 +74,7 @@ class EvaluationsJob(base.Job):
             logger.info("Read targets: {}", self.targets)
             targets_ = self.targets.read()  # unchecked!
             targets = schemas.TargetsSchema.check(targets_)
+            schemas.check_row_alignment(inputs, targets)
             logger.debug("- Targets shape: {}", targets.shape)
             # lineage
             # - inputs
@@ -102,6 +103,7 @@ class EvaluationsJob(base.Job):
             # outputs
             logger.info("Predict outputs: {}", len(inputs))
             outputs = model.predict(inputs=inputs)  # checked
+            schemas.check_row_alignment(targets, outputs)
             logger.debug("- Outputs shape: {}", outputs.shape)
             # dataset
             logger.info("Create dataset: inputs & targets & outputs")

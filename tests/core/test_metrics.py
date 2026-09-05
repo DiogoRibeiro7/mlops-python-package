@@ -1,5 +1,7 @@
 # %% IMPORTS
 
+import typing as T
+
 import mlflow
 import pandas as pd
 import pytest
@@ -68,3 +70,11 @@ def test_threshold() -> None:
     assert mlflow_threshold.greater_is_better == threshold.greater_is_better, (
         "Greater is better should be the same!"
     )
+
+
+def test_score_rejects_misaligned_outputs(
+    targets: schemas.Targets, outputs: schemas.Outputs
+) -> None:
+    metric = metrics.SklearnMetric()
+    with pytest.raises(ValueError, match="same order"):
+        metric.score(targets, T.cast(schemas.Outputs, outputs.iloc[::-1]))
