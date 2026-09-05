@@ -290,6 +290,10 @@ def test_evaluation_reference_boundary(
             assert any(
                 item.dataset.name == "reference_inputs" for item in run.inputs.dataset_inputs
             )
+            # The fixture saves a model directly, so explicitly record its training reference.
+            assert model_alias.run_id is not None
+            with mlflow.start_run(run_id=model_alias.run_id):
+                provenance.log_frames({"inputs": reference})
             promotion = jobs.PromotionJob(
                 mlflow_service=mlflow_service,
                 alerts_service=alerts_service,
@@ -301,6 +305,11 @@ def test_evaluation_reference_boundary(
                         for item in run.inputs.dataset_inputs
                         if item.dataset.name in {"inputs", "targets", "reference_inputs"}
                     }
+                ),
+                dataset_sha256=jobs.PromotionJob.DatasetHashes(
+                    inputs=provenance.fingerprint(evaluation),
+                    targets=provenance.fingerprint(targets),
+                    reference_inputs=provenance.fingerprint(reference),
                 ),
                 thresholds=job.thresholds,
             )

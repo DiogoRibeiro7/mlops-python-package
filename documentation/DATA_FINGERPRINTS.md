@@ -38,4 +38,6 @@ For each role, the run receives `data.<role>.sha256` and `data.<role>.format` ta
 
 The artifacts and tags remain mutable MLflow records. A hash alone does not prove when a table was observed, whether it was used elsewhere for model selection, or that a model artifact was produced from it. Historical models lack these records and are not backfilled.
 
-The promotion gate still checks its configured MLflow lineage digests. It does not yet require these full-table fingerprints. The next provenance step is to bind the selected model’s source-run records to the declared evaluation reference and require the expected full-table hashes at promotion. Do not treat this recording step as completion of that gate.
+Promotion requires the configured MLflow lineage digests and `dataset_sha256` values for all three evaluation roles. Each evaluation hash must match the operator-selected value and have the current format tag. The registered candidate's source run must be active and FINISHED in the configured experiment. Its full `inputs` fingerprint must match `reference_inputs`, with the same encoding format. This binds recorded identities, not actual execution history or tuning exposure.
+
+Expected hashes and the encoding format are saved in `promotion/dataset_sha256.json` before validation, including on rejected attempts. Historical runs without this evidence are rejected. Retrain through the recording workflow rather than backfilling historical tags. Existing lineage and metric checks remain required.

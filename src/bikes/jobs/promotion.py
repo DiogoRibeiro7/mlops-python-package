@@ -8,7 +8,7 @@ import pydantic as pdt
 from mlflow.tracking import MlflowClient
 
 from bikes.core import metrics
-from bikes.io import registries, services
+from bikes.io import provenance, registries, services
 from bikes.jobs import base
 
 
@@ -19,6 +19,7 @@ class PromotionJob(base.Job):
         version (int): explicit candidate version; latest-version selection is forbidden.
         evaluation_run_id (str): completed evaluation of this exact candidate.
         dataset_digests (DatasetDigests): operator-selected MLflow dataset identities.
+        dataset_sha256 (DatasetHashes): expected full-table fingerprints in the current format.
         thresholds (dict[str, Threshold]): nonempty promotion acceptance policy.
         alias (str): alias to update after validation.
         run_config (RunConfig): tracking configuration for the promotion audit.
@@ -34,11 +35,19 @@ class PromotionJob(base.Job):
         targets: str = pdt.Field(min_length=1)
         reference_inputs: str = pdt.Field(min_length=1)
 
+    class DatasetHashes(pdt.BaseModel, strict=True, frozen=True, extra="forbid"):
+        """Operator-selected SHA-256 values using bikes.dataframe.v1 encoding."""
+
+        inputs: str = pdt.Field(pattern=r"^[0-9a-f]{64}$")
+        targets: str = pdt.Field(pattern=r"^[0-9a-f]{64}$")
+        reference_inputs: str = pdt.Field(pattern=r"^[0-9a-f]{64}$")
+
     KIND: T.Literal["PromotionJob"] = "PromotionJob"
     alias: str = pdt.Field(default="Champion", min_length=1)
     version: int = pdt.Field(gt=0)
     evaluation_run_id: str = pdt.Field(min_length=1)
     dataset_digests: DatasetDigests
+    dataset_sha256: DatasetHashes
     thresholds: dict[str, metrics.Threshold] = pdt.Field(
         default={"r2_score": metrics.Threshold(threshold=0.5, greater_is_better=True)},
         min_length=1,
@@ -83,6 +92,26 @@ class PromotionJob(base.Job):
                 for tag in matches[0].tags
             ):
                 raise ValueError("Reference dataset must have evaluation_reference context.")
+        for role, expected_hash in self.dataset_sha256.model_dump().items():
+            if (
+                run.data.tags.get(f"data.{role}.format") != provenance.FORMAT
+                or run.data.tags.get(f"data.{role}.sha256") != expected_hash
+            ):
+                raise ValueError(f"Evaluation full-table fingerprint mismatch: {role}.")
+        source = client.get_run(candidate.run_id)
+        if (
+            source.info.experiment_id != experiment.experiment_id
+            or source.info.lifecycle_stage != "active"
+            or source.info.status != "FINISHED"
+        ):
+            raise ValueError("Model source run must be active and FINISHED in the experiment.")
+        # The reference covers the full development table, including internal validation.
+        # Matching mutable records does not prove execution or an untouched holdout.
+        if (
+            source.data.tags.get("data.inputs.format") != provenance.FORMAT
+            or source.data.tags.get("data.inputs.sha256") != self.dataset_sha256.reference_inputs
+        ):
+            raise ValueError("Evaluation reference must match the source run's full inputs.")
         # Recheck the operator's policy; a passing tag alone is insufficient.
         for name, value in run.data.metrics.items():
             if not math.isfinite(value):
@@ -112,6 +141,10 @@ class PromotionJob(base.Job):
             mlflow.log_dict(
                 {name: bound.model_dump() for name, bound in self.thresholds.items()},
                 "promotion/thresholds.json",
+            )
+            mlflow.log_dict(
+                {"format": provenance.FORMAT, **self.dataset_sha256.model_dump()},
+                "promotion/dataset_sha256.json",
             )
             self._validate_evidence(client)
             previous_version = client.get_registered_model(name).aliases.get(self.alias, "")
