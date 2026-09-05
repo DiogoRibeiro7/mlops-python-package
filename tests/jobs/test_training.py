@@ -1,6 +1,10 @@
 # %% IMPORTS
 
+import json
+
 import _pytest.capture as pc
+import pandas as pd
+from mlflow.models.utils import load_serving_example, validate_serving_input
 
 from bikes import jobs
 from bikes.core import metrics, models, schemas
@@ -160,3 +164,21 @@ def test_training_job(
     )
     # - alerting service
     assert "Training Job Finished" in capsys.readouterr().out, "Alerting service should be called!"
+
+    # Exercise the persisted training example through MLflow's JSON scoring parser.
+    model_uri = out["model_info"].model_uri
+    serving_example = load_serving_example(model_uri)
+    payload = json.loads(serving_example)
+    split = payload["dataframe_split"]
+    assert "index" not in split, "Serving must work without source dataset IDs!"
+    assert not {"instant", "casual", "registered", "cnt"}.intersection(split["columns"])
+    expected = model.predict(out["inputs"]).reset_index(drop=True)
+    served = validate_serving_input(model_uri, serving_example)
+    assert isinstance(served, pd.DataFrame)
+    pd.testing.assert_frame_equal(served.reset_index(drop=True), expected)
+
+    # The records orientation must preserve row order and predictions as well.
+    records = [dict(zip(split["columns"], row, strict=True)) for row in split["data"]]
+    served_records = validate_serving_input(model_uri, json.dumps({"dataframe_records": records}))
+    assert isinstance(served_records, pd.DataFrame)
+    pd.testing.assert_frame_equal(served_records.reset_index(drop=True), expected)
