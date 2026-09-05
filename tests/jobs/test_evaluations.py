@@ -206,6 +206,7 @@ def test_evaluation_reference_boundary(
         inputs=datasets.ParquetReader(path=str(inputs_path)),
         targets=datasets.ParquetReader(path=str(targets_path)),
         reference_inputs=datasets.ParquetReader(path=str(reference_path)),
+        run_config=mlflow_service.RunConfig(name="ReferenceBoundaryTest"),
         alias_or_version=model_alias.aliases[0],
         thresholds={},
     )
@@ -214,6 +215,16 @@ def test_evaluation_reference_boundary(
             with pytest.raises(ValueError, match="disjoint"):
                 runner.run()
             loader.assert_not_called()
+            client = mlflow_service.client()
+            experiment = client.get_experiment_by_name(mlflow_service.experiment_name)
+            assert experiment is not None
+            runs = client.search_runs(
+                experiment_ids=[experiment.experiment_id],
+                filter_string="tags.`mlflow.runName` = 'ReferenceBoundaryTest'",
+            )
+            assert len(runs) == 1
+            assert runs[0].info.status == "FAILED"
+            assert runs[0].data.tags["evaluation.boundary"] == "rejected"
         else:
             out = runner.run()
             loader.assert_called_once()
