@@ -1,7 +1,10 @@
 # %% IMPORTS
 
+from pathlib import Path
+
 import _pytest.capture as pc
 import pytest
+from pytest_mock import MockerFixture
 
 from bikes import jobs
 from bikes.core import metrics, schemas
@@ -31,6 +34,7 @@ from bikes.io import datasets, registries, services
             marks=pytest.mark.xfail(
                 reason="Invalid threshold for metric.",
                 raises=metrics.MlflowModelValidationFailedException,
+                strict=True,
             ),
         ),
     ],
@@ -72,6 +76,10 @@ def test_evaluations_job(
     with job as runner:
         out = runner.run()
     # then
+    assert (
+        out["client"].get_run(out["run"].info.run_id).data.tags["evaluation.boundary"]
+        == "unchecked"
+    )
     # - vars
     assert set(out) == {
         "self",
@@ -170,3 +178,47 @@ def test_evaluations_job(
     assert runs[0].info.status == "FINISHED", "Mlflow run status should be set as FINISHED!"
     # - alerting service
     assert "Evaluations" in capsys.readouterr().out, "Alerting service should be called!"
+
+
+@pytest.mark.parametrize("overlap", [False, True])
+def test_evaluation_reference_boundary(
+    overlap: bool,
+    tmp_path: Path,
+    train_test_sets: tuple[schemas.Inputs, schemas.Targets, schemas.Inputs, schemas.Targets],
+    mlflow_service: services.MlflowService,
+    alerts_service: services.AlertsService,
+    logger_service: services.LoggerService,
+    model_alias: registries.Version,
+    mocker: MockerFixture,
+) -> None:
+    reference, _, evaluation, targets = train_test_sets
+    reference_path = tmp_path / "reference.parquet"
+    inputs_path = tmp_path / "inputs.parquet"
+    targets_path = tmp_path / "targets.parquet"
+    (evaluation if overlap else reference).to_parquet(reference_path)
+    evaluation.to_parquet(inputs_path)
+    targets.to_parquet(targets_path)
+    loader = mocker.spy(registries.CustomLoader, "load")
+    job = jobs.EvaluationsJob(
+        mlflow_service=mlflow_service,
+        alerts_service=alerts_service,
+        logger_service=logger_service,
+        inputs=datasets.ParquetReader(path=str(inputs_path)),
+        targets=datasets.ParquetReader(path=str(targets_path)),
+        reference_inputs=datasets.ParquetReader(path=str(reference_path)),
+        alias_or_version=model_alias.aliases[0],
+        thresholds={},
+    )
+    with job as runner:
+        if overlap:
+            with pytest.raises(ValueError, match="disjoint"):
+                runner.run()
+            loader.assert_not_called()
+        else:
+            out = runner.run()
+            loader.assert_called_once()
+            run = out["client"].get_run(out["run"].info.run_id)
+            assert run.data.tags["evaluation.boundary"] == "passed_against_reference"
+            assert any(
+                item.dataset.name == "reference_inputs" for item in run.inputs.dataset_inputs
+            )

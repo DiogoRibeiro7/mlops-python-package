@@ -27,7 +27,8 @@ Acceptance: development, installed wheel and documented job environment resolve 
 - Completed: remove casual and registered counts from package predictive features and inference requirements, with legacy input filtering and regression coverage. Existing registered models require retraining; inherited notebooks remain historical.
 - Define chronological training, validation and untouched test boundaries.
 - Completed: enforce nonempty, unique, aligned row IDs before fitting/scoring and unique increasing calendar hours in package splitters; reject shuffling. Within each fold, training precedes test and row positions are disjoint.
-- Still open: enforce disjointness and temporal boundaries across separately supplied training, validation and final test datasets.
+- Completed: optional evaluation reference checks enforce disjoint IDs and later evaluation hours across supplied datasets; the example uses test files against the development reference. MLflow records reference lineage and explicit checked/unchecked status.
+- Still open: bind the reference to exact model training/tuning history and enforce a frozen, untouched final test set.
 - Compare meaningful simple baselines with the random forest using the same evaluation contract.
 - Keep hyperparameter selection inside the training/validation procedure.
 

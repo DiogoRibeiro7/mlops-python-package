@@ -126,3 +126,30 @@ def test_shuffle_is_rejected() -> None:
 def test_invalid_time_series_configuration(config: dict[str, int | float]) -> None:
     with pytest.raises(pdt.ValidationError):
         splitters.TimeSeriesSplitter.model_validate(config)
+
+
+@pytest.mark.parametrize(
+    "case", ["later", "overlap_ids", "same_hour", "earlier", "unsorted", "empty"]
+)
+def test_temporal_boundary(inputs: schemas.Inputs, case: str) -> None:
+    reference = T.cast(schemas.Inputs, inputs.iloc[:100].copy())
+    evaluation = T.cast(schemas.Inputs, inputs.iloc[100:120].copy())
+    if case == "overlap_ids":
+        evaluation.index = reference.index[: len(evaluation)]
+    elif case in {"same_hour", "earlier"}:
+        # Distinct IDs cannot hide overlapping or reversed calendar times.
+        source = reference.iloc[-1] if case == "same_hour" else reference.iloc[0]
+        evaluation["dteday"] = source["dteday"]
+        evaluation["hr"] = np.arange(len(evaluation))
+        if case == "same_hour":
+            evaluation = T.cast(schemas.Inputs, evaluation.iloc[:1])
+            evaluation["hr"] = source["hr"]
+    elif case == "unsorted":
+        evaluation = T.cast(schemas.Inputs, evaluation.iloc[::-1])
+    elif case == "empty":
+        evaluation = T.cast(schemas.Inputs, evaluation.iloc[:0])
+    if case == "later":
+        splitters.check_temporal_boundary(reference, evaluation)
+    else:
+        with pytest.raises(ValueError):
+            splitters.check_temporal_boundary(reference, evaluation)
