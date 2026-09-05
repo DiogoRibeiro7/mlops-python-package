@@ -1,73 +1,157 @@
-# %% IMPORTS
+"""Exercise promotion rejection and alias preservation against a local MLflow store."""
 
-import _pytest.capture as pc
 import mlflow
+import pandas as pd
+import pydantic as pdt
 import pytest
+from pytest_mock import MockerFixture
 
 from bikes import jobs
-from bikes.io import registries, services
+from bikes.io import services
 
-# %% JOBS
+
+@pytest.fixture
+def promotion(
+    mlflow_service: services.MlflowService, alerts_service: services.AlertsService
+) -> jobs.PromotionJob:
+    """Create two registry versions and a controlled evaluation evidence record."""
+    client = mlflow_service.client()
+    name = mlflow_service.registry_name
+    with mlflow_service.run_context(mlflow_service.RunConfig(name="Source")) as source:
+        client.create_registered_model(name)
+        for _ in range(2):
+            client.create_model_version(
+                name, source=f"runs:/{source.info.run_id}/model", run_id=source.info.run_id
+            )
+    client.set_registered_model_alias(name, "Champion", "1")
+    digests: dict[str, str] = {}
+    with mlflow_service.run_context(mlflow_service.RunConfig(name="Evidence")) as run:
+        mlflow.set_tags(
+            {
+                "evaluation.model_name": name,
+                "evaluation.model_version": "2",
+                "evaluation.model_uri": f"models:/{name}/2",
+                "evaluation.model_source_run_id": source.info.run_id,
+                "evaluation.thresholds": "passed",
+                "evaluation.boundary": "passed_against_reference",
+            }
+        )
+        for dataset_name in ("inputs", "targets", "reference_inputs"):
+            dataset = mlflow.data.from_pandas(  # type: ignore[attr-defined]
+                pd.DataFrame({"value": [1, 2]}), name=dataset_name
+            )
+            mlflow.log_input(
+                dataset,
+                context="evaluation_reference"
+                if dataset_name == "reference_inputs"
+                else "Evaluations",
+            )
+            digests[dataset_name] = dataset.digest
+        mlflow.log_metric("r2_score", 0.8)
+    return jobs.PromotionJob(
+        mlflow_service=mlflow_service,
+        alerts_service=alerts_service,
+        version=2,
+        evaluation_run_id=run.info.run_id,
+        dataset_digests=jobs.PromotionJob.DatasetDigests.model_validate(digests),
+    )
 
 
 @pytest.mark.parametrize(
-    "version",
+    "case",
     [
-        None,  # latest version
-        1,  # specific version
-        pytest.param(
-            2,
-            marks=pytest.mark.xfail(
-                reason="Version does not exist.",
-                raises=mlflow.exceptions.MlflowException,
-            ),
-        ),
-    ],
-)
-def test_promotion_job(
-    version: int | None,
-    mlflow_service: services.MlflowService,
-    alerts_service: services.AlertsService,
-    logger_service: services.LoggerService,
-    model_version: registries.Version,
-    capsys: pc.CaptureFixture[str],
-) -> None:
-    # given
-    alias = "Testing"
-    # when
-    job = jobs.PromotionJob(
-        logger_service=logger_service,
-        alerts_service=alerts_service,
-        mlflow_service=mlflow_service,
-        version=version,
-        alias=alias,
-    )
-    with job as runner:
-        out = runner.run()
-    # then
-    # - vars
-    assert set(out) == {
-        "self",
-        "logger",
-        "client",
+        "valid",
+        "failed",
+        "running",
+        "deleted",
+        "experiment",
+        "missing_run",
+        "missing_version",
         "name",
         "version",
-        "model_version",
+        "uri",
+        "source",
+        "unchecked",
+        "rejected",
+        "boundary",
+        "missing_tag",
+        "inputs_digest",
+        "targets_digest",
+        "reference_digest",
+        "missing_metric",
+        "low_metric",
+        "nan",
+        "infinity",
+    ],
+)
+def test_promotion_evidence(promotion: jobs.PromotionJob, case: str, mocker: MockerFixture) -> None:
+    """Every rejection must leave Champion unchanged and never call its setter."""
+    client = promotion.mlflow_service.client()
+    run_id = promotion.evaluation_run_id
+    data = promotion.model_dump()
+    tag_changes = {
+        "name": ("evaluation.model_name", "Other"),
+        "version": ("evaluation.model_version", "1"),
+        "uri": ("evaluation.model_uri", "models:/Other/2"),
+        "source": ("evaluation.model_source_run_id", "other"),
+        "unchecked": ("evaluation.thresholds", "unchecked"),
+        "rejected": ("evaluation.thresholds", "rejected"),
+        "boundary": ("evaluation.boundary", "unchecked"),
     }
-    # - name
-    assert out["name"] == mlflow_service.registry_name, "Model name should be the same!"
-    # - version
-    assert out["version"] == model_version.version, "Version number should be the same!"
-    # - model version
-    assert out["model_version"].name == out["name"], "Model version name should be the same!"
-    assert out["model_version"].version == out["version"], (
-        "Model version number should be the same!"
-    )
-    assert out["model_version"].run_id == model_version.run_id, (
-        "Model version run id should be the same!"
-    )
-    assert out["model_version"].aliases == [alias], (
-        "Model version aliases should contain the given alias!"
-    )
-    # - alerting service
-    assert "Promotion Job Finished" in capsys.readouterr().out, "Alerting service should be called!"
+    if case in tag_changes:
+        client.set_tag(run_id, *tag_changes[case])
+    elif case in {"failed", "running"}:
+        client.set_terminated(run_id, status=case.upper())
+    elif case == "deleted":
+        client.delete_run(run_id)
+    elif case == "experiment":
+        data["mlflow_service"]["experiment_name"] = "Different"
+    elif case == "missing_run":
+        data["evaluation_run_id"] = "0" * 32
+    elif case == "missing_version":
+        data["version"] = 999
+    elif case == "missing_tag":
+        client.delete_tag(run_id, "evaluation.thresholds")
+    elif case.endswith("_digest"):
+        key = {
+            "inputs_digest": "inputs",
+            "targets_digest": "targets",
+            "reference_digest": "reference_inputs",
+        }[case]
+        data["dataset_digests"][key] = "wrong"
+    elif case == "missing_metric":
+        data["thresholds"] = {"absent": {"threshold": 0.5, "greater_is_better": True}}
+    elif case in {"low_metric", "nan", "infinity"}:
+        value = {"low_metric": 0.1, "nan": float("nan"), "infinity": float("inf")}[case]
+        client.log_metric(run_id, "r2_score", value, step=1)
+    job = jobs.PromotionJob.model_validate(data)
+    setter = mocker.spy(mlflow.tracking.MlflowClient, "set_registered_model_alias")
+    with job:
+        if case == "valid":
+            out = job.run()
+            setter.assert_called_once()
+            audit = client.get_run(out["run"].info.run_id)
+            assert audit.info.status == "FINISHED"
+            assert audit.data.tags["promotion.previous_version"] == "1"
+            assert audit.data.tags["promotion.evaluation_run_id"] == run_id
+            assert audit.data.tags["promotion.status"] == "applied"
+        else:
+            with pytest.raises((ValueError, mlflow.exceptions.MlflowException)):
+                job.run()
+            setter.assert_not_called()
+        assert int(
+            client.get_model_version_by_alias(
+                promotion.mlflow_service.registry_name, "Champion"
+            ).version
+        ) == (2 if case == "valid" else 1)
+
+
+@pytest.mark.parametrize(
+    "change", [{"version": None}, {"version": 0}, {"evaluation_run_id": ""}, {"thresholds": {}}]
+)
+def test_promotion_requires_explicit_evidence(
+    promotion: jobs.PromotionJob, change: dict[str, object]
+) -> None:
+    """Configuration cannot opt back into latest-version or empty-policy promotion."""
+    with pytest.raises(pdt.ValidationError):
+        jobs.PromotionJob.model_validate(promotion.model_dump() | change)

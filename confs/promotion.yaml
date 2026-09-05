@@ -1,2 +1,9 @@
 job:
   KIND: PromotionJob
+  # Fill these from the deliberately selected candidate and evaluation record.
+  version: ???
+  evaluation_run_id: ???
+  dataset_digests:
+    inputs: ???
+    targets: ???
+    reference_inputs: ???

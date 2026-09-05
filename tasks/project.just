@@ -1,6 +1,6 @@
-# run project tasks
+# prepare and train; evaluate an explicit candidate before separate promotion
 [group('project')]
-project: project-environment (project-run "tuning") (project-run "training") (project-run "promotion") (project-run "inference") (project-run "evaluations") (project-run "explanations")
+project: project-environment (project-run "tuning") (project-run "training")
 
 # export both runtime environment files from the lockfile
 [group('project')]

@@ -39,9 +39,10 @@ Acceptance: regression tests reject target-derived features and overlapping spli
 - Bind dataset hashes, split membership, configuration, code revision and environment to each run.
 - Completed: evaluation resolves a selector once, loads the version URI and records the model identity and source run ID; an alias-movement regression checks version stability.
 - Completed: persist the evaluation threshold policy and explicit acceptance status; reject non-finite policy bounds and reported metrics, and mark empty policies unchecked.
-- Still open: require evaluation of an explicit candidate before promotion changes an alias.
-- Require a passing evaluation record for that exact model and dataset version.
-- Record the previous Champion and provide explicit rollback.
+- Completed: require an explicit candidate and a finished matching evaluation with passed threshold/reference checks and operator-selected MLflow dataset digests before an alias write. Recheck a separate nonempty promotion policy.
+- Still open: cryptographically bind full datasets and actual training history to the evidence; enforce store access controls and serialize concurrent promotion.
+- Completed: record the previous alias version and promotion policy in a tracking run.
+- Still open: provide explicit rollback and recover atomically from registry/audit failures.
 - Fail clearly for missing versions, non-finite metrics or absent evaluation evidence.
 
 Acceptance: a local MLflow integration test demonstrates rejected promotion, accepted promotion and rollback with traceable evidence.

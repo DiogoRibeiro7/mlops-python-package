@@ -12,7 +12,7 @@ The development goal is reproducible training and auditable model promotion. The
 
 The independent work so far establishes maintenance ownership, removes automatic upstream synchronization, corrects repository and publishing links, and documents the inherited limitations. Runtime environment exports now come from the uv lockfile with a CI freshness check and preserved platform markers. A separate Linux/Python 3.13 job builds the wheel, installs it in a clean runtime environment, checks dependency consistency, and verifies package origin plus CLI help and JSON schema output outside the checkout.
 
-The bike model now excludes the target components `casual` and `registered`. Input validation removes those legacy columns before training, inference, explanations and signature generation; they are no longer required. Regression tests check that changing them cannot change a newly trained model’s predictions. Integration tests also reload a registered custom model and send the training job’s persisted example through MLflow’s JSON scoring parser in split and records formats, without source row IDs. Training, tuning and evaluation now reject empty, duplicate or misaligned row IDs. Package splitters require unique, increasing calendar hours derived from `dteday` and `hr`, and reject shuffling. Direct model fitting and metric scoring also enforce row alignment. The example evaluation now uses the separate test files and checks their IDs and calendar boundary against the declared development inputs. Evaluation resolves the requested alias or version once, loads a version URI, and records the registered name, version, URI, requested selector and source run ID in MLflow tags. Binding the reference data to that model’s actual training history and evidence-based promotion remain open work. The [roadmap](documentation/ROADMAP.md) defines their acceptance criteria, and [ATTRIBUTION.md](ATTRIBUTION.md) records the starting point.
+The bike model now excludes the target components `casual` and `registered`. Input validation removes those legacy columns before training, inference, explanations and signature generation; they are no longer required. Regression tests check that changing them cannot change a newly trained model’s predictions. Integration tests also reload a registered custom model and send the training job’s persisted example through MLflow’s JSON scoring parser in split and records formats, without source row IDs. Training, tuning and evaluation now reject empty, duplicate or misaligned row IDs. Package splitters require unique, increasing calendar hours derived from `dteday` and `hr`, and reject shuffling. Direct model fitting and metric scoring also enforce row alignment. The example evaluation now uses the separate test files and checks their IDs and calendar boundary against the declared development inputs. Evaluation resolves the requested alias or version once, loads a version URI, and records the registered name, version, URI, requested selector and source run ID in MLflow tags. Promotion now requires an explicit candidate, a completed matching evaluation, declared dataset digests and passing metrics under its own policy. Binding the reference data to the model’s actual training history remains open work. The [roadmap](documentation/ROADMAP.md) defines their acceptance criteria, and [ATTRIBUTION.md](ATTRIBUTION.md) records the starting point.
 
 ## Inherited capabilities
 
@@ -68,6 +68,28 @@ Both exports exclude default development groups and retain platform conditions. 
 | `scripts/` | Runtime environment export and verification |
 | `documentation/` | Maintained project documentation and roadmap |
 
+## Evaluation and promotion
+
+`just project` now stops after tuning and training. Select the registered candidate version deliberately, then evaluate it using the declared development reference and separate evaluation files. For example, if the candidate is version 1:
+
+```bash
+uv run bikes confs/evaluations.yaml -e '{"job":{"alias_or_version":1}}'
+```
+
+The default R² threshold remains 0.5. A run that fails this threshold is rejected; do not lower the production policy merely to complete the example.
+
+Before promotion, fill the required fields in `confs/promotion.yaml`: the candidate version, its evaluation run ID, and the expected MLflow lineage digests for `inputs`, `targets` and `reference_inputs`. Review the dataset identities against the intended evaluation files. The `???` placeholders deliberately prevent an unconfigured promotion. Then run:
+
+```bash
+uv run bikes confs/promotion.yaml
+```
+
+Promotion requires an active, finished evaluation in the configured experiment. Its recorded model name, version, URI and nonempty source run ID must match the candidate. Both the threshold and reference-boundary checks must have passed, and each expected dataset identity must match exactly one lineage entry. Promotion independently rechecks finite metrics against its own nonempty threshold policy, which defaults to R² ≥ 0.5. Diagnostic or historical runs without this evidence are rejected before any alias write.
+
+A promotion run records the candidate, evaluation run ID, expected digests, promotion policy and previous alias version (empty if unset). Its status becomes `applied` after the registry write. Explicit rollback remains future work.
+
+This gate trusts the MLflow tracking and registry stores. Their records are mutable, MLflow lineage digests are not cryptographic full-data hashes, and the declared reference still does not prove the model’s training history. Concurrent alias changes are not serialized, and the alias write and tracking audit are not one transaction. If a run fails after the write, inspect the registry before retrying. These limits remain release blockers in the roadmap.
+
 ## Known limitations
 
 The model estimates hourly rental count (`cnt`) using calendar fields and observed weather for that hour. This is a retrospective estimation example, not a validated advance forecast: a prediction horizon and weather availability at prediction time still need to be defined. Removing `casual` and `registered` fixes direct target-component leakage only.
@@ -80,7 +102,7 @@ Split sizes and time-series gaps count observations, not elapsed hours. Missing 
 
 Threshold values must be finite, and evaluation rejects any reported NaN or infinite metric, including metrics without a configured threshold. Each run saves its configured policy to `evaluation/thresholds.json`. The `evaluation.thresholds` tag starts as `pending`, becomes `rejected` before result validation, and changes to `passed` only when a nonempty policy succeeds. An empty policy is diagnostic and records `unchecked`. A failure before result validation leaves `pending`; downstream consumers must also require a successfully finished run. These mutable records describe metric acceptance, not deployment approval or verified training-data provenance.
 
-The default evaluation configuration reads `inputs_test.parquet` and `targets_test.parquet`, with `inputs_train.parquet` as its reference. An absent source run ID is recorded as an empty tag for externally registered models. A version URI prevents alias movement from changing the selected version during evaluation; it does not make the registry or artifact storage immutable. This checks the supplied files, not the selected model’s training history: an incorrect or incomplete reference can still pass, and prior use of the test data for model selection is not detected. This does not establish an untouched final test set. Promotion selects the latest version when none is supplied and changes the Champion alias without requiring passing evaluation evidence. The inherited `just project` sequence promotes before evaluating. Do not use that sequence to approve a deployment.
+The default evaluation configuration reads `inputs_test.parquet` and `targets_test.parquet`, with `inputs_train.parquet` as its reference. An absent source run ID is recorded as an empty tag for externally registered models. A version URI prevents alias movement from changing the selected version during evaluation; it does not make the registry or artifact storage immutable. This checks the supplied files, not the selected model’s training history: an incorrect or incomplete reference can still pass, and prior use of the test data for model selection is not detected. This does not establish an untouched final test set.
 
 Release publishing remains manual while scientific validation, dependency security review and container validation are incomplete. Dispatching Publish writes documentation to `gh-pages` and publishes a container under `ghcr.io/diogoribeiro7/mlops-python-package`; it should only be run after the release gates in the roadmap pass. Hosted documentation is not assumed to be configured.
 
