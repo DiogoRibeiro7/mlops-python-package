@@ -49,7 +49,11 @@ class Schema(pa.DataFrameModel):
 
 
 class InputsSchema(Schema):
-    """Schema for the project inputs."""
+    """Calendar and observed weather inputs, excluding rental outcomes.
+
+    ``check`` removes the two legacy target components from inherited datasets.
+    Other unknown columns still fail strict validation.
+    """
 
     instant: papd.Index[padt.UInt32] = pa.Field(ge=0)
     dteday: papd.Series[padt.DateTime] = pa.Field()
@@ -65,8 +69,12 @@ class InputsSchema(Schema):
     atemp: papd.Series[padt.Float16] = pa.Field(ge=0, le=1)
     hum: papd.Series[padt.Float16] = pa.Field(ge=0, le=1)
     windspeed: papd.Series[padt.Float16] = pa.Field(ge=0, le=1)
-    casual: papd.Series[padt.UInt32] = pa.Field(ge=0)
-    registered: papd.Series[padt.UInt32] = pa.Field(ge=0)
+
+    @classmethod
+    def check(cls: T.Type[TSchema], data: pd.DataFrame) -> papd.DataFrame[TSchema]:
+        """Validate inputs after removing legacy counts without mutating the caller."""
+        inputs = data.drop(columns=["casual", "registered"], errors="ignore")
+        return T.cast(papd.DataFrame[TSchema], cls.validate(inputs))
 
 
 Inputs = papd.DataFrame[InputsSchema]

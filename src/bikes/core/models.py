@@ -135,8 +135,6 @@ class BaselineSklearnModel(Model):
         "atemp",
         "hum",
         "windspeed",
-        "casual",
-        "registered",  # too correlated with target
     ]
     _categoricals: list[str] = [
         "season",
@@ -145,6 +143,7 @@ class BaselineSklearnModel(Model):
 
     @T.override
     def fit(self, inputs: schemas.Inputs, targets: schemas.Targets) -> "BaselineSklearnModel":
+        inputs = schemas.InputsSchema.check(inputs)
         # subcomponents
         categoricals_transformer = preprocessing.OneHotEncoder(
             sparse_output=False, handle_unknown="ignore"
@@ -175,6 +174,7 @@ class BaselineSklearnModel(Model):
     @T.override
     def predict(self, inputs: schemas.Inputs) -> schemas.Outputs:
         model = self.get_internal_model()
+        inputs = schemas.InputsSchema.check(inputs)
         prediction = model.predict(inputs)
         outputs_ = pd.DataFrame(
             data={schemas.OutputsSchema.prediction: prediction}, index=inputs.index
@@ -202,6 +202,7 @@ class BaselineSklearnModel(Model):
         model = self.get_internal_model()
         regressor = model.named_steps["regressor"]
         transformer = model.named_steps["transformer"]
+        inputs = schemas.InputsSchema.check(inputs)
         transformed = transformer.transform(X=inputs)
         explainer = shap.TreeExplainer(model=regressor)
         shap_values_ = pd.DataFrame(

@@ -2,6 +2,7 @@
 
 import typing as T
 
+import pandas as pd
 import pytest
 
 from bikes.core import models, schemas
@@ -93,3 +94,28 @@ def test_baseline_sklearn_model(
     assert len(feature_importances["feature"]) >= len(inputs_train.columns), (
         "Feature importances should have more features than inputs!"
     )
+
+
+def test_baseline_ignores_target_components(
+    train_test_sets: tuple[schemas.Inputs, schemas.Targets, schemas.Inputs, schemas.Targets],
+) -> None:
+    """Training, inference and explanations must not depend on rental components."""
+    inputs_train, targets_train, inputs_test, _ = train_test_sets
+    assert not {"casual", "registered", "cnt"}.intersection(inputs_train.columns)
+    clean = models.BaselineSklearnModel(n_estimators=5, max_depth=3)
+    legacy = models.BaselineSklearnModel(n_estimators=5, max_depth=3)
+    clean.fit(inputs_train, targets_train)
+    # Cast deliberately unchecked legacy frames to exercise the model boundary.
+    legacy_inputs = T.cast(
+        schemas.Inputs, inputs_train.assign(casual=targets_train["cnt"], registered=0)
+    )
+    legacy.fit(legacy_inputs, targets_train)
+    expected = clean.predict(inputs_test)
+    altered = T.cast(schemas.Inputs, inputs_test.assign(casual=999999, registered=999999))
+    pd.testing.assert_frame_equal(legacy.predict(inputs_test), expected)
+    pd.testing.assert_frame_equal(legacy.predict(altered), expected)
+    pd.testing.assert_frame_equal(
+        clean.explain_samples(inputs_test), legacy.explain_samples(altered)
+    )
+    features = legacy.explain_model()["feature"]
+    assert not features.str.contains("casual|registered|cnt").any()

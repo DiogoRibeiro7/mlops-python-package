@@ -24,7 +24,7 @@ Acceptance: development, installed wheel and documented job environment resolve 
 ## 3. Scientifically valid bike example
 
 - Define the target as rental count, the prediction horizon and feature availability at prediction time.
-- Remove casual and registered counts from predictive features and inference requirements.
+- Completed: remove casual and registered counts from package predictive features and inference requirements, with legacy input filtering and regression coverage. Existing registered models require retraining; inherited notebooks remain historical.
 - Define chronological training, validation and untouched test boundaries.
 - Enforce index alignment, split disjointness and temporal ordering.
 - Compare meaningful simple baselines with the random forest using the same evaluation contract.
