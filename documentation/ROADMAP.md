@@ -13,10 +13,11 @@ Goal: a Python workflow for classical ML with reproducible training and auditabl
 
 - Choose and validate a stable MLflow version with the existing APIs.
 - Completed: generate runtime requirements and MLflow environment from one lockfile, preserving platform markers; verify freshness in CI.
-- Reconcile the Compose server version with the client environment.
+- Completed: the Compose image and locked client both use MLflow 2.20.3. Container execution remains unverified.
 - Separate optional explanation, notebook and build dependencies from runtime needs.
 - Completed: gate CI on Linux/Python 3.13 wheel installation, dependency consistency, installed package origin, and CLI help/schema execution outside the source tree.
-- Validate installed end-to-end jobs and container execution separately.
+- Completed: installed-wheel CI trains, registers and reloads a model outside the checkout, checking predictions and full-input fingerprints with runtime dependencies only.
+- Still open: installed evaluation/promotion jobs and container execution.
 - Review dependency security findings inherited from the fork.
 
 Acceptance: development, installed wheel and documented job environment resolve compatible versions and pass the relevant smoke and integration checks.

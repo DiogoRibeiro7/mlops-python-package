@@ -10,7 +10,7 @@ The development goal is reproducible training and auditable model promotion. The
 
 ## What has changed here
 
-The independent work so far establishes maintenance ownership, removes automatic upstream synchronization, corrects repository and publishing links, and documents the inherited limitations. Runtime environment exports now come from the uv lockfile with a CI freshness check and preserved platform markers. A separate Linux/Python 3.13 job builds the wheel, installs it in a clean runtime environment, checks dependency consistency, and verifies package origin plus CLI help and JSON schema output outside the checkout.
+The independent work so far establishes maintenance ownership, removes automatic upstream synchronization, corrects repository and publishing links, and documents the inherited limitations. Runtime environment exports now come from the uv lockfile with a CI freshness check and preserved platform markers. A separate Linux/Python 3.13 job builds the wheel, installs it in a clean runtime environment, checks dependency consistency, and verifies package origin, CLI help/schema output and a training-to-reload roundtrip outside the checkout.
 
 The bike model now excludes the target components `casual` and `registered`. Input validation removes those legacy columns before training, inference, explanations and signature generation; they are no longer required. Regression tests check that changing them cannot change a newly trained model’s predictions. Integration tests also reload a registered custom model and send the training job’s persisted example through MLflow’s JSON scoring parser in split and records formats, without source row IDs. Training, tuning and evaluation now reject empty, duplicate or misaligned row IDs. Package splitters require unique, increasing calendar hours derived from `dteday` and `hr`, and reject shuffling. Direct model fitting and metric scoring also enforce row alignment. The example evaluation now uses the separate test files and checks their IDs and calendar boundary against the declared development inputs. Evaluation resolves the requested alias or version once, loads a version URI, and records the registered name, version, URI, requested selector and source run ID in MLflow tags. Promotion now requires an explicit candidate, a completed matching evaluation, declared dataset digests, full-table SHA-256 fingerprints and passing metrics under its own policy. The reference fingerprint must match the source run’s recorded full development inputs. Verifying actual execution history remains open work. The [roadmap](documentation/ROADMAP.md) defines their acceptance criteria, and [ATTRIBUTION.md](ATTRIBUTION.md) records the starting point.
 
@@ -53,7 +53,7 @@ python scripts/export_environment.py
 python scripts/export_environment.py --check
 ```
 
-Both exports exclude default development groups and retain platform conditions. This aligns them with the existing MLflow 2.20.3 baseline; it is not a dependency security upgrade. The pending dependency update requires a separate compatibility review. The wheel smoke check covers imports and CLI startup on Linux/Python 3.13. It does not establish model quality, full job execution, other operating systems or container correctness. Container validation remains open.
+Both exports exclude default development groups and retain platform conditions. This aligns them with the existing MLflow 2.20.3 baseline; it is not a dependency security upgrade. The pending dependency update requires a separate compatibility review. The wheel smoke check covers imports, CLI startup, training, registration and model reload on Linux/Python 3.13. It does not establish model quality, evaluation/promotion job execution, other operating systems or container correctness. Container validation remains open.
 
 ## Structure
 
@@ -67,6 +67,12 @@ Both exports exclude default development groups and retain platform conditions. 
 | `tests/` | Unit and integration tests with sample data |
 | `scripts/` | Runtime environment export and verification |
 | `documentation/` | Maintained project documentation and roadmap |
+
+### Installed training check
+
+The installed-wheel CI job also runs a small training job outside the checkout using only locked runtime dependencies. It uses the first 1,500 development rows, reserves the last 168 for internal validation, registers the resulting model in a temporary local MLflow store, reloads its explicit version and checks prediction equality and recorded data fingerprints. All generated data and tracking files are temporary.
+
+This checks packaging and model persistence. It does not establish model quality, an untouched final test set, HTTP serving or container execution. The production evaluation and promotion thresholds remain unchanged.
 
 ## Evaluation and promotion
 

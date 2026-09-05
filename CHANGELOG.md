@@ -1,5 +1,7 @@
 # Independent maintenance: unreleased
 
+- Exercise installed-wheel training, registration and model reload outside the checkout using runtime dependencies only.
+
 - Require full-table SHA-256 evidence during promotion and match the evaluation reference to the candidate source run’s recorded full inputs.
 
 - Record versioned full-table SHA-256 fingerprints and shape/schema metadata for validated job data, training partitions and evaluation references, with exact-value and format-stability regressions.
