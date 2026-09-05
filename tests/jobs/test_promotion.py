@@ -1,5 +1,8 @@
 """Exercise promotion rejection and alias preservation against a local MLflow store."""
 
+import json
+from pathlib import Path
+
 import mlflow
 import pandas as pd
 import pydantic as pdt
@@ -7,7 +10,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from bikes import jobs
-from bikes.io import services
+from bikes.io import provenance, services
 
 
 @pytest.fixture
@@ -17,7 +20,9 @@ def promotion(
     """Create two registry versions and a controlled evaluation evidence record."""
     client = mlflow_service.client()
     name = mlflow_service.registry_name
+    table = pd.DataFrame({"value": [1, 2]})
     with mlflow_service.run_context(mlflow_service.RunConfig(name="Source")) as source:
+        provenance.log_frames({"inputs": table})
         client.create_registered_model(name)
         for _ in range(2):
             client.create_model_version(
@@ -36,6 +41,7 @@ def promotion(
                 "evaluation.boundary": "passed_against_reference",
             }
         )
+        provenance.log_frames(dict.fromkeys(("inputs", "targets", "reference_inputs"), table))
         for dataset_name in ("inputs", "targets", "reference_inputs"):
             dataset = mlflow.data.from_pandas(  # type: ignore[attr-defined]
                 pd.DataFrame({"value": [1, 2]}), name=dataset_name
@@ -54,6 +60,9 @@ def promotion(
         version=2,
         evaluation_run_id=run.info.run_id,
         dataset_digests=jobs.PromotionJob.DatasetDigests.model_validate(digests),
+        dataset_sha256=jobs.PromotionJob.DatasetHashes.model_validate(
+            dict.fromkeys(digests, provenance.fingerprint(table))
+        ),
     )
 
 
@@ -135,6 +144,13 @@ def test_promotion_evidence(promotion: jobs.PromotionJob, case: str, mocker: Moc
             assert audit.data.tags["promotion.previous_version"] == "1"
             assert audit.data.tags["promotion.evaluation_run_id"] == run_id
             assert audit.data.tags["promotion.status"] == "applied"
+            hashes_path = client.download_artifacts(
+                audit.info.run_id, "promotion/dataset_sha256.json"
+            )
+            assert json.loads(Path(hashes_path).read_text()) == {
+                "format": provenance.FORMAT,
+                **job.dataset_sha256.model_dump(),
+            }
             # Use the actual promotion audit to restore the previous alias.
             rollback = jobs.RollbackJob(
                 mlflow_service=promotion.mlflow_service,
@@ -173,3 +189,54 @@ def test_promotion_requires_explicit_evidence(
     """Configuration cannot opt back into latest-version or empty-policy promotion."""
     with pytest.raises(pdt.ValidationError):
         jobs.PromotionJob.model_validate(promotion.model_dump() | change)
+
+
+@pytest.mark.parametrize("role", ["inputs", "targets", "reference_inputs", "source"])
+@pytest.mark.parametrize("defect", ["missing", "changed", "format"])
+def test_promotion_requires_fingerprints(
+    promotion: jobs.PromotionJob, role: str, defect: str, mocker: MockerFixture
+) -> None:
+    """Reject inconsistent hashes even while all legacy lineage checks still pass."""
+    client = promotion.mlflow_service.client()
+    run_id = promotion.evaluation_run_id
+    if role == "source":
+        candidate = client.get_model_version(promotion.mlflow_service.registry_name, "2")
+        assert candidate.run_id is not None
+        run_id = candidate.run_id
+        role = "inputs"
+    key = f"data.{role}.sha256"
+    if defect == "missing":
+        client.delete_tag(run_id, key)
+    elif defect == "changed":
+        client.set_tag(run_id, key, "0" * 64)
+    else:
+        client.set_tag(run_id, f"data.{role}.format", "unknown.v2")
+    setter = mocker.spy(mlflow.tracking.MlflowClient, "set_registered_model_alias")
+    with promotion, pytest.raises(ValueError):
+        promotion.run()
+    setter.assert_not_called()
+
+
+@pytest.mark.parametrize("status", ["FAILED", "RUNNING", "deleted"])
+def test_promotion_requires_completed_source(
+    promotion: jobs.PromotionJob, status: str, mocker: MockerFixture
+) -> None:
+    """A valid evaluation cannot authorize an incomplete or deleted source run."""
+    client = promotion.mlflow_service.client()
+    candidate = client.get_model_version(promotion.mlflow_service.registry_name, "2")
+    assert candidate.run_id is not None
+    if status == "deleted":
+        client.delete_run(candidate.run_id)
+    else:
+        client.set_terminated(candidate.run_id, status=status)
+    setter = mocker.spy(mlflow.tracking.MlflowClient, "set_registered_model_alias")
+    with promotion, pytest.raises(ValueError, match="source run"):
+        promotion.run()
+    setter.assert_not_called()
+
+
+@pytest.mark.parametrize("value", ["", "a" * 63, "g" * 64, "A" * 64, "a" * 65])
+def test_hash_configuration_rejects_invalid_sha256(value: str) -> None:
+    """Hashes must use the canonical lowercase SHA-256 representation."""
+    with pytest.raises(pdt.ValidationError):
+        jobs.PromotionJob.DatasetHashes(inputs=value, targets="a" * 64, reference_inputs="b" * 64)

@@ -7,3 +7,8 @@ job:
     inputs: ???
     targets: ???
     reference_inputs: ???
+  # SHA-256 of the validated tables, using bikes.dataframe.v1.
+  dataset_sha256:
+    inputs: ???
+    targets: ???
+    reference_inputs: ???
