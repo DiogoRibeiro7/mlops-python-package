@@ -44,5 +44,5 @@ jobs:
           uv pip sync --python "$RUNNER_TEMP/wheel-env/bin/python" requirements.txt
           uv pip install --python "$RUNNER_TEMP/wheel-env/bin/python" --no-deps "$RUNNER_TEMP"/wheel-dist/*.whl
           uv pip check --python "$RUNNER_TEMP/wheel-env/bin/python"
-      - name: Verify installed CLI and training roundtrip outside checkout
+      - name: Verify installed CLI and model lifecycle outside checkout
         run: '"$RUNNER_TEMP/wheel-env/bin/python" -I scripts/smoke_wheel.py'

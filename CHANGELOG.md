@@ -1,5 +1,7 @@
 # Independent maintenance: unreleased
 
+- Extend installed-wheel CI through reference-checked evaluation and rejected/accepted promotion, with alias and audit verification.
+
 - Exercise installed-wheel training, registration and model reload outside the checkout using runtime dependencies only.
 
 - Require full-table SHA-256 evidence during promotion and match the evaluation reference to the candidate source run’s recorded full inputs.
