@@ -24,6 +24,25 @@ The bike model now excludes the target components `casual` and `registered`. Inp
 
 The package and command remain named `bikes` for compatibility. Version `4.1.0` is inherited and does not represent a new independent release.
 
+## Workflow at a glance
+
+This diagram shows the current training and reference-checked evaluation path. The full development table includes the internal validation rows, so the evaluation boundary is checked against more than just the fitting partition.
+
+```mermaid
+flowchart TD
+    development["Development inputs and targets"] --> training["TrainingJob: validate and split chronologically"]
+    training --> fit["Fit on the earlier partition"]
+    fit --> validation["Score on internal validation rows"]
+    validation --> candidate["Register a model version and source run"]
+    development --> reference["Full development inputs as reference"]
+    candidate --> evaluation["EvaluationsJob: pin version and check reference boundary"]
+    reference --> evaluation
+    separate["Separate evaluation inputs and targets"] --> evaluation
+    evaluation --> evidence["Record identity, hashes, metrics and acceptance status"]
+```
+
+Tuning is a separate job that uses chronological cross-validation. `just project` runs tuning and training, then stops. Evaluation and promotion require deliberate follow-up commands. The separate evaluation files are not claimed to be an untouched final test set.
+
 ## Development setup
 
 Install Python 3.13 and uv 0.11.33 (the version pinned in CI), then run:
@@ -105,6 +124,25 @@ uv run bikes confs/rollback.yaml
 `RollbackJob` checks the promotion’s experiment, completion status, registered model and alias. The target must match its recorded previous version and still exist. The alias must still point to the version installed by that promotion. Stale records, repeated attempts after restoration and promotions with no previous alias are rejected. Rollback records its source promotion, reason, from/to versions and applied status in a separate tracking run. It restores registry routing and does not re-evaluate the old model or establish that it meets the current promotion policy.
 
 This gate trusts the MLflow tracking and registry stores. Their records are mutable, MLflow lineage digests are not cryptographic full-data hashes, and the declared reference still does not prove the model’s training history. Concurrent alias changes are not serialized, and the alias write and tracking audit are not one transaction. If a run fails after the write, inspect the registry before retrying. These limits remain release blockers in the roadmap.
+
+### Promotion and rollback decisions
+
+Promotion checks both the chosen evidence and its own metric policy before changing an alias. Rollback uses the recorded previous version and checks that the alias still points to the version installed by that promotion.
+
+```mermaid
+flowchart TD
+    selection["Candidate version, evaluation run and expected dataset identities"] --> gate{"Promotion evidence valid?"}
+    source["Finished source run with matching full-input hash"] --> gate
+    policy["Nonempty promotion metric policy"] --> gate
+    gate -->|No| reject["Reject before alias write"]
+    gate -->|Yes| promote["Record previous version, then set alias to candidate"]
+    promote --> audit["Record applied promotion"]
+    audit --> rollback{"Explicit rollback request passes history and current-alias checks?"}
+    rollback -->|No| stop["Reject before rollback alias write"]
+    rollback -->|Yes| restore["Restore recorded previous version and record rollback"]
+```
+
+The promotion decision includes model identity, run status and experiment, passed evaluation checks, lineage digests, versioned full-table hashes and finite metrics. The arrows show job order, not an atomic transaction: alias writes and audit updates can fail separately, and concurrent writers are not serialized. Rollback does not re-evaluate the restored model. Hash matching checks mutable records and does not prove actual training history.
 
 ## Full-table fingerprints
 
