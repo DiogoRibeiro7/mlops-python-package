@@ -85,3 +85,16 @@ def test_threshold_requires_finite_value(value: float) -> None:
     """A non-finite policy cannot provide an auditable acceptance bound."""
     with pytest.raises(ValueError, match="finite"):
         metrics.Threshold(threshold=value, greater_is_better=True)
+
+
+@pytest.mark.parametrize(
+    "name, expected", [("max_error", 100000.0), ("mean_squared_error", 5000000000.5)]
+)
+def test_unsigned_counts_use_safe_metric_arithmetic(name: str, expected: float) -> None:
+    """Overprediction and large squared residuals must not wrap UInt32 values."""
+    targets = schemas.Targets({"cnt": pd.Series([0, 100000], dtype="uint32")})
+    outputs = schemas.Outputs({"prediction": pd.Series([1, 0], dtype="uint32")})
+    metric = metrics.SklearnMetric(name=name, greater_is_better=False)
+    assert metric.score(targets, outputs) == -expected
+    assert str(targets["cnt"].dtype) == "uint32"
+    assert str(outputs["prediction"].dtype) == "uint32"

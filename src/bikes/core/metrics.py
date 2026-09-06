@@ -121,8 +121,10 @@ class SklearnMetric(Metric):
         schemas.check_row_alignment(targets, outputs)
         metric = getattr(sklearn_metrics, self.name)
         sign = 1 if self.greater_is_better else -1
-        y_true = targets[schemas.TargetsSchema.cnt]
-        y_pred = outputs[schemas.OutputsSchema.prediction]
+        # UInt32 counts can wrap during subtraction or multiplication. Float64
+        # represents every UInt32 value exactly and permits negative residuals.
+        y_true = targets[schemas.TargetsSchema.cnt].astype("float64")
+        y_pred = outputs[schemas.OutputsSchema.prediction].astype("float64")
         score = metric(y_pred=y_pred, y_true=y_true) * sign
         return float(score)
 
