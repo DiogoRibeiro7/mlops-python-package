@@ -73,7 +73,11 @@ def check_evaluation_and_promotion(root: Path, service: MlflowService, version: 
             version=version,
             evaluation_run_id=evidence.info.run_id,
             dataset_digests=PromotionJob.DatasetDigests.model_validate(
-                {item.dataset.name: item.dataset.digest for item in evidence.inputs.dataset_inputs}
+                {
+                    item.dataset.name: item.dataset.digest
+                    for item in evidence.inputs.dataset_inputs
+                    if item.dataset.name in {"inputs", "targets", "reference_inputs"}
+                }
             ),
             dataset_sha256=hashes,
             thresholds=policy,
