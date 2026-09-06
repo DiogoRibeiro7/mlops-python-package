@@ -1,5 +1,7 @@
 # Independent maintenance: unreleased
 
+- Complete installed-wheel lifecycle coverage with audited rollback and stale-record rejection.
+
 - Prevent unsigned count wraparound in sklearn scoring and MLflow evaluation by converting metric inputs to float64, with maximum-error and large-residual regressions.
 
 - Extend installed-wheel CI through reference-checked evaluation and rejected/accepted promotion, with alias and audit verification.
