@@ -18,7 +18,8 @@ Goal: a Python workflow for classical ML with reproducible training and auditabl
 - Completed: gate CI on Linux/Python 3.13 wheel installation, dependency consistency, installed package origin, and CLI help/schema execution outside the source tree.
 - Completed: installed-wheel CI trains, registers and reloads a model outside the checkout, checking predictions and full-input fingerprints with runtime dependencies only.
 - Completed: installed-wheel CI evaluates later development rows, rejects promotion with a wrong hash without changing aliases, then applies promotion with matching evidence and checks its audit. This uses a permissive smoke-only policy.
-- Still open: installed rollback jobs and container execution.
+- Completed: installed-wheel CI restores the recorded prior alias target through RollbackJob, verifies its audit and rejects a repeated rollback without changing aliases.
+- Still open: container execution.
 - Review dependency security findings inherited from the fork.
 
 Acceptance: development, installed wheel and documented job environment resolve compatible versions and pass the relevant smoke and integration checks.

@@ -30,7 +30,7 @@ def check_evaluation_and_promotion(root: Path, service: MlflowService, version: 
 
     from bikes.core import metrics, schemas
     from bikes.io import datasets, provenance, services
-    from bikes.jobs import EvaluationsJob, PromotionJob
+    from bikes.jobs import EvaluationsJob, PromotionJob, RollbackJob
 
     # These rows follow the training slice. No final-test files are opened.
     inputs = schemas.InputsSchema.check(
@@ -94,6 +94,15 @@ def check_evaluation_and_promotion(root: Path, service: MlflowService, version: 
             mlflow_service=service,
             run_config=service.RunConfig(name="WheelPromotion", log_system_metrics=False),
         )
+        # A second registration of the real artifact supplies a prior alias target.
+        # Version numbers encode registration order, not promotion order or quality.
+        candidate = client.get_model_version(service.registry_name, str(version))
+        previous = client.create_model_version(
+            service.registry_name, source=candidate.source, run_id=candidate.run_id
+        )
+        client.set_registered_model_alias(
+            service.registry_name, promotion.alias, str(previous.version)
+        )
         before = dict(client.get_registered_model(service.registry_name).aliases)
         bad_hashes = hashes.model_dump() | {"inputs": "0" * 64}
         rejected = PromotionJob.model_validate(
@@ -118,7 +127,40 @@ def check_evaluation_and_promotion(root: Path, service: MlflowService, version: 
             or audit.data.tags.get("promotion.evaluation_run_id") != evidence.info.run_id
         ):
             raise RuntimeError("Installed promotion did not apply and record the chosen version")
-    print("Installed evaluation and rejected/accepted promotion verified")
+        if audit.data.tags.get("promotion.previous_version") != str(previous.version):
+            raise RuntimeError("Installed promotion did not record the prior alias target")
+        rollback = RollbackJob(
+            promotion_run_id=audit.info.run_id,
+            expected_version=version,
+            target_version=int(previous.version),
+            reason="Verify installed rollback routing and audit",
+            alias=promotion.alias,
+            mlflow_service=service,
+            run_config=service.RunConfig(name="WheelRollback", log_system_metrics=False),
+        )
+        restored = rollback.run()
+        rollback_audit = client.get_run(restored["run"].info.run_id)
+        if (
+            rollback_audit.info.status != "FINISHED"
+            or rollback_audit.data.tags.get("rollback.status") != "applied"
+            or rollback_audit.data.tags.get("rollback.promotion_run_id") != audit.info.run_id
+            or rollback_audit.data.tags.get("rollback.to_version") != str(previous.version)
+            or int(
+                client.get_model_version_by_alias(service.registry_name, promotion.alias).version
+            )
+            != int(previous.version)
+        ):
+            raise RuntimeError("Installed rollback did not restore and audit the prior version")
+        try:
+            rollback.run()
+        except ValueError as error:
+            if "Alias no longer points to the expected promoted version" not in str(error):
+                raise
+        else:
+            raise RuntimeError("Installed rollback accepted a stale promotion record")
+        if dict(client.get_registered_model(service.registry_name).aliases) != before:
+            raise RuntimeError("Repeated rollback changed registry aliases")
+    print("Installed evaluation, promotion and rollback with stale-record rejection verified")
 
 
 def check_training(root: Path) -> None:
