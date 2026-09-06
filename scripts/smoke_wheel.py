@@ -18,6 +18,97 @@ import sysconfig
 import tempfile
 import tomllib
 from types import ModuleType
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from bikes.io.services import MlflowService
+
+
+def check_evaluation_and_promotion(root: Path, service: MlflowService, version: int) -> None:
+    """Exercise acceptance and rejection with later development rows in a local store."""
+    import pandas as pd
+
+    from bikes.core import metrics, schemas
+    from bikes.io import datasets, provenance, services
+    from bikes.jobs import EvaluationsJob, PromotionJob
+
+    # These rows follow the training slice. No final-test files are opened.
+    inputs = schemas.InputsSchema.check(
+        pd.read_parquet(root / "data/inputs_train.parquet").iloc[1500:1668]
+    )
+    targets = schemas.TargetsSchema.check(
+        pd.read_parquet(root / "data/targets_train.parquet").iloc[1500:1668]
+    )
+    reference = schemas.InputsSchema.check(pd.read_parquet("inputs.parquet"))
+    inputs.to_parquet("evaluation_inputs.parquet")
+    targets.to_parquet("evaluation_targets.parquet")
+    # An explicit permissive smoke policy tests execution, not model quality.
+    policy = {"mean_squared_error": metrics.Threshold(threshold=1e12, greater_is_better=False)}
+    evaluation = EvaluationsJob(
+        inputs=datasets.ParquetReader(path="evaluation_inputs.parquet"),
+        targets=datasets.ParquetReader(path="evaluation_targets.parquet"),
+        reference_inputs=datasets.ParquetReader(path="inputs.parquet"),
+        alias_or_version=version,
+        thresholds=policy,
+        mlflow_service=service,
+        logger_service=services.LoggerService(level="WARNING"),
+        run_config=service.RunConfig(name="WheelEvaluation", log_system_metrics=False),
+    )
+    with evaluation:
+        result = evaluation.run()
+        client = service.client()
+        evidence = client.get_run(result["run"].info.run_id)
+        if (
+            evidence.info.status != "FINISHED"
+            or evidence.data.tags.get("evaluation.thresholds") != "passed"
+            or evidence.data.tags.get("evaluation.boundary") != "passed_against_reference"
+        ):
+            raise RuntimeError("Installed evaluation did not record accepted evidence")
+        hashes = PromotionJob.DatasetHashes(
+            inputs=provenance.fingerprint(inputs),
+            targets=provenance.fingerprint(targets),
+            reference_inputs=provenance.fingerprint(reference),
+        )
+        promotion = PromotionJob(
+            version=version,
+            evaluation_run_id=evidence.info.run_id,
+            dataset_digests=PromotionJob.DatasetDigests.model_validate(
+                {
+                    item.dataset.name: item.dataset.digest
+                    for item in evidence.inputs.dataset_inputs
+                    if item.dataset.name in {"inputs", "targets", "reference_inputs"}
+                }
+            ),
+            dataset_sha256=hashes,
+            thresholds=policy,
+            mlflow_service=service,
+            run_config=service.RunConfig(name="WheelPromotion", log_system_metrics=False),
+        )
+        before = dict(client.get_registered_model(service.registry_name).aliases)
+        bad_hashes = hashes.model_dump() | {"inputs": "0" * 64}
+        rejected = PromotionJob.model_validate(
+            promotion.model_dump() | {"dataset_sha256": bad_hashes}
+        )
+        try:
+            rejected.run()
+        except ValueError as error:
+            if "Evaluation full-table fingerprint mismatch: inputs" not in str(error):
+                raise
+        else:
+            raise RuntimeError("Installed promotion accepted an incorrect input hash")
+        if dict(client.get_registered_model(service.registry_name).aliases) != before:
+            raise RuntimeError("Rejected promotion changed registry aliases")
+        applied = promotion.run()
+        audit = client.get_run(applied["run"].info.run_id)
+        selected = client.get_model_version_by_alias(service.registry_name, promotion.alias)
+        if (
+            int(selected.version) != version
+            or audit.info.status != "FINISHED"
+            or audit.data.tags.get("promotion.status") != "applied"
+            or audit.data.tags.get("promotion.evaluation_run_id") != evidence.info.run_id
+        ):
+            raise RuntimeError("Installed promotion did not apply and record the chosen version")
+    print("Installed evaluation and rejected/accepted promotion verified")
 
 
 def check_training(root: Path) -> None:
@@ -75,6 +166,7 @@ def check_training(root: Path) -> None:
             ):
                 raise RuntimeError(f"Installed training fingerprint mismatch: {role}")
     print("Installed training, registration, reload and prediction roundtrip verified")
+    check_evaluation_and_promotion(root, service, int(version.version))
 
 
 def main() -> int:
