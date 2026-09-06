@@ -64,6 +64,16 @@ def check_evaluation_and_promotion(root: Path, service: MlflowService, version: 
             or evidence.data.tags.get("evaluation.boundary") != "passed_against_reference"
         ):
             raise RuntimeError("Installed evaluation did not record accepted evidence")
+        expected_max_error = (
+            (
+                targets[schemas.TargetsSchema.cnt].astype("float64")
+                - result["outputs"][schemas.OutputsSchema.prediction].astype("float64")
+            )
+            .abs()
+            .max()
+        )
+        if evidence.data.metrics.get("max_error") != expected_max_error:
+            raise RuntimeError("Installed evaluation maximum error disagrees with residuals")
         hashes = PromotionJob.DatasetHashes(
             inputs=provenance.fingerprint(inputs),
             targets=provenance.fingerprint(targets),
@@ -159,7 +169,8 @@ def check_training(root: Path) -> None:
         run = service.client().get_run(result["run"].info.run_id)
         if run.info.status != "FINISHED" or version.run_id != run.info.run_id:
             raise RuntimeError("Installed training did not register its completed source run")
-        for role, table in {"inputs": inputs, "targets": targets}.items():
+        tables: dict[str, pd.DataFrame] = {"inputs": inputs, "targets": targets}
+        for role, table in tables.items():
             if (
                 run.data.tags.get(f"data.{role}.sha256") != provenance.fingerprint(table)
                 or run.data.tags.get(f"data.{role}.format") != provenance.FORMAT

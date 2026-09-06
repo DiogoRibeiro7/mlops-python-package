@@ -1,5 +1,7 @@
 # Independent maintenance: unreleased
 
+- Prevent unsigned count wraparound in sklearn scoring and MLflow evaluation by converting metric inputs to float64, with maximum-error and large-residual regressions.
+
 - Extend installed-wheel CI through reference-checked evaluation and rejected/accepted promotion, with alias and audit verification.
 
 - Exercise installed-wheel training, registration and model reload outside the checkout using runtime dependencies only.

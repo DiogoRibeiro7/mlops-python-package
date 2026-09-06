@@ -209,6 +209,10 @@ def test_evaluations_job(
         "Validation thresholds should have the same keys as thresholds!"
     )
     # - evaluations
+    residuals = out["targets"][schemas.TargetsSchema.cnt].astype("float64") - out["outputs"][
+        schemas.OutputsSchema.prediction
+    ].astype("float64")
+    assert out["evaluations"].metrics["max_error"] == pytest.approx(residuals.abs().max())
     assert out["evaluations"].metrics["example_count"] == inputs_reader.limit, (
         "Evaluations should have the same number of examples as the inputs!"
     )
