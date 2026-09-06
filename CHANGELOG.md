@@ -1,5 +1,7 @@
 # Independent maintenance: unreleased
 
+- Install locked runtime dependencies in the package image and add container lifecycle CI with networking disabled.
+
 - Complete installed-wheel lifecycle coverage with audited rollback and stale-record rejection.
 
 - Prevent unsigned count wraparound in sklearn scoring and MLflow evaluation by converting metric inputs to float64, with maximum-error and large-residual regressions.

@@ -72,7 +72,7 @@ python scripts/export_environment.py
 python scripts/export_environment.py --check
 ```
 
-Both exports exclude default development groups and retain platform conditions. This aligns them with the existing MLflow 2.20.3 baseline; it is not a dependency security upgrade. The pending dependency update requires a separate compatibility review. The wheel smoke check covers imports, CLI startup, training, registration, model reload, evaluation, promotion and rollback on Linux/Python 3.13. It does not establish model quality, other operating systems or container correctness. Container validation remains open.
+Both exports exclude default development groups and retain platform conditions. This aligns them with the existing MLflow 2.20.3 baseline; it is not a dependency security upgrade. The pending dependency update requires a separate compatibility review. The wheel smoke check covers imports, CLI startup, training, registration, model reload, evaluation, promotion and rollback on Linux/Python 3.13. It does not establish model quality, other operating systems or container correctness. A separate container CI job covers the package image as described below.
 
 ## Structure
 
@@ -91,7 +91,22 @@ Both exports exclude default development groups and retain platform conditions. 
 
 The installed-wheel CI job also runs a small training job outside the checkout using only locked runtime dependencies. It uses the first 1,500 development rows, reserves the last 168 for internal validation, registers the resulting model in a temporary local MLflow store, reloads its explicit version and checks prediction equality and recorded data fingerprints. It then evaluates the registered version on the next 168 development rows, using the original 1,500 inputs as the reference. A deliberately wrong input hash must reject promotion without changing aliases; the matching evidence must then promote the selected version and record its audit. The check registers the same model artifact again to provide a prior alias target, then verifies promotion records that target, rollback restores it with an audit, and a repeated rollback is rejected without changing aliases. This tests routing and history checks, not differences in model quality. All generated data and tracking files are temporary.
 
-The evaluation and promotion smoke checks use an explicit permissive MSE bound of 10¹² to test execution and evidence handling. They do not read the final-test files. This checks packaging, model persistence and the promotion contract. It does not establish model quality, an untouched final test set, HTTP serving or container execution. The production evaluation and promotion thresholds remain unchanged.
+The evaluation and promotion smoke checks use an explicit permissive MSE bound of 10¹² to test execution and evidence handling. They do not read the final-test files. This checks packaging, model persistence and the promotion contract. It does not establish model quality, an untouched final test set, HTTP serving or remote tracking. The production evaluation and promotion thresholds remain unchanged.
+
+### Package container
+
+Build a wheel, then build and run the image locally:
+
+```bash
+uv sync --locked --no-default-groups
+uv build --wheel --no-build-isolation
+docker build -t bikes-local .
+docker run --rm --network none bikes-local
+```
+
+The default command displays CLI help. The image installs `requirements.txt`, generated from `uv.lock`, before installing the wheel without resolving its dependencies again. CI also runs the complete smoke lifecycle inside this image with networking disabled and a read-only fixture mount containing no package sources. Training, evaluation, promotion and rollback use temporary local MLflow storage.
+
+This verifies the package container on Linux. It does not validate the separate Compose MLflow server, HTTP serving, durable storage, authentication or deployment. The base-image tag remains mutable, so this is not a claim of byte-for-byte image reproducibility. CI builds locally and does not publish an image.
 
 ## Evaluation and promotion
 
@@ -154,7 +169,7 @@ These fingerprints describe the model-ready tables after schema conversion, incl
 
 The model estimates hourly rental count (`cnt`) using calendar fields and observed weather for that hour. This is a retrospective estimation example, not a validated advance forecast: a prediction horizon and weather availability at prediction time still need to be defined. Removing `casual` and `registered` fixes direct target-component leakage only.
 
-MLflow JSON serving uses positional row order; it does not preserve the source dataset’s `instant` IDs. The round-trip tests cover the local scoring parser and model execution, not an HTTP server or container deployment.
+MLflow JSON serving uses positional row order; it does not preserve the source dataset’s `instant` IDs. The round-trip tests cover the local scoring parser and model execution, not an HTTP server or a containerized HTTP server.
 
 Existing registered models retain their old features and signatures: retrain and register a new version to use this change. The inherited notebooks and their saved outputs are historical exploratory work and may still use target components; they are not evidence for the corrected package’s performance.
 
@@ -166,7 +181,7 @@ Threshold values must be finite, and evaluation rejects any reported NaN or infi
 
 The default evaluation configuration reads `inputs_test.parquet` and `targets_test.parquet`, with `inputs_train.parquet` as its reference. An absent source run ID is recorded as an empty tag for externally registered models. A version URI prevents alias movement from changing the selected version during evaluation; it does not make the registry or artifact storage immutable. This checks the supplied files, not the selected model’s training history: an incorrect or incomplete reference can still pass, and prior use of the test data for model selection is not detected. This does not establish an untouched final test set.
 
-Release publishing remains manual while scientific validation, dependency security review and container validation are incomplete. Dispatching Publish writes documentation to `gh-pages` and publishes a container under `ghcr.io/diogoribeiro7/mlops-python-package`; it should only be run after the release gates in the roadmap pass. Hosted documentation is not assumed to be configured.
+Release publishing remains manual while scientific validation, dependency security review and deployment validation are incomplete. Dispatching Publish writes documentation to `gh-pages` and publishes a container under `ghcr.io/diogoribeiro7/mlops-python-package`; it should only be run after the release gates in the roadmap pass. Hosted documentation is not assumed to be configured.
 
 See the [roadmap](documentation/ROADMAP.md) for acceptance criteria and implementation order.
 
