@@ -1,0 +1,6 @@
+# The image needs only the runtime export and built distribution.
+**
+!Dockerfile
+!requirements.txt
+!dist/
+!dist/*.whl

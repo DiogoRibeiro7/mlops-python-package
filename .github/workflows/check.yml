@@ -46,3 +46,33 @@ jobs:
           uv pip check --python "$RUNNER_TEMP/wheel-env/bin/python"
       - name: Verify installed CLI and model lifecycle outside checkout
         run: '"$RUNNER_TEMP/wheel-env/bin/python" -I scripts/smoke_wheel.py'
+
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Build wheel from locked environment
+        run: |
+          uv sync --locked --no-default-groups
+          python scripts/export_environment.py --check
+          uv build --wheel --no-build-isolation
+      - name: Build package container
+        run: docker build --tag bikes-ci .
+      - name: Check default container command
+        run: docker run --rm --network none bikes-ci
+      - name: Prepare smoke fixtures without package sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/container-fixture/scripts" "$RUNNER_TEMP/container-fixture/data"
+          cp pyproject.toml "$RUNNER_TEMP/container-fixture/"
+          cp scripts/smoke_wheel.py "$RUNNER_TEMP/container-fixture/scripts/"
+          cp data/inputs_train.parquet data/targets_train.parquet "$RUNNER_TEMP/container-fixture/data/"
+      - name: Run container lifecycle with networking disabled
+        shell: bash
+        run: |
+          docker run --rm --network none \
+            --mount "type=bind,source=$RUNNER_TEMP/container-fixture,target=/fixture,readonly" \
+            bikes-ci python -I /fixture/scripts/smoke_wheel.py
