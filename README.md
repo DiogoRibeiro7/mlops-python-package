@@ -8,6 +8,14 @@ Diogo Ribeiro maintains this independent continuation. Our aim is to improve rep
 
 The development goal is reproducible training and auditable model promotion. The inherited implementation is a starting point and is not yet a validated production system.
 
+## Architecture
+
+![Bikes MLOps system context](documentation/architecture/rendered/BikesMLOpsContext.svg)
+
+The project is primarily one installable Python package and CLI. MLflow is the main external stateful dependency, while local configuration and dataset files enter through explicit IO boundaries. The Docker image is another execution environment for the same package rather than a separate service.
+
+See [`documentation/ARCHITECTURE.md`](documentation/ARCHITECTURE.md) for the C4 System Context and Component views, their implementation evidence, runtime forms and deliberate omissions. The Mermaid diagrams below remain the execution-flow views.
+
 ## What has changed here
 
 The independent work so far establishes maintenance ownership, removes automatic upstream synchronization, corrects repository and publishing links, and documents the inherited limitations. Runtime environment exports now come from the uv lockfile with a CI freshness check and preserved platform markers. A separate Linux/Python 3.13 job builds the wheel, installs it in a clean runtime environment, checks dependency consistency, and verifies package origin, CLI help/schema output and training, reload, evaluation, promotion and rollback outside the checkout.
