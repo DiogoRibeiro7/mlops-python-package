@@ -1,0 +1,19 @@
+@startuml BikesMLOpsContext
+!include <C4/C4_Context>
+
+LAYOUT_LEFT_RIGHT()
+title Bikes MLOps Package - System Context
+
+Person(practitioner, "ML practitioner / maintainer", "Runs configured jobs, reviews evidence, and deliberately selects models for evaluation, promotion, or rollback.")
+System(bikes, "bikes MLOps package", "Installable Python package and CLI for configuration-driven training, tuning, inference, evaluation, explanation, promotion, and rollback.")
+System_Ext(data_files, "Model-ready data and job configuration", "Local CSV/Parquet datasets plus YAML/JSON configuration supplied to the CLI.")
+System_Ext(mlflow, "MLflow tracking and model registry", "Stores runs, metrics, artifacts, registered model versions, aliases, and audit evidence. It can be a local store or a separately running server.")
+System_Ext(os_notifications, "Local notification facility", "Optional desktop/system notification used for job completion and failure alerts.")
+
+Rel(practitioner, bikes, "Runs jobs and inspects outputs", "bikes CLI")
+Rel(data_files, bikes, "Provides validated datasets and configuration", "filesystem")
+Rel(bikes, mlflow, "Logs runs and evidence; loads/registers versions; changes aliases", "MLflow client API")
+Rel(bikes, os_notifications, "Sends optional operator notifications", "local OS integration")
+
+SHOW_LEGEND()
+@enduml
