@@ -1,0 +1,110 @@
+name: Architecture diagrams
+
+on:
+  push:
+    branches:
+      - main
+      - docs/architecture-foundation
+    paths:
+      - "documentation/architecture/**"
+      - "documentation/ARCHITECTURE.md"
+      - "README.md"
+      - ".github/workflows/architecture.yml"
+  pull_request:
+    paths:
+      - "documentation/architecture/**"
+      - "documentation/ARCHITECTURE.md"
+      - "README.md"
+      - ".github/workflows/architecture.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: architecture-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    name: Render PlantUML architecture
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install and verify Graphviz
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes graphviz
+          test "$(command -v dot)" = "/usr/bin/dot"
+          dot -V
+
+      - name: Download pinned PlantUML
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            https://github.com/plantuml/plantuml/releases/download/v1.2026.6/plantuml-1.2026.6.jar \
+            -o /tmp/plantuml.jar
+          echo "89948f14c93756c7a3fb7b69078ff37e8489fd79dd430c582b931e2f65358690  /tmp/plantuml.jar" \
+            | sha256sum --check --strict
+
+      - name: Verify PlantUML can use Graphviz
+        shell: bash
+        env:
+          GRAPHVIZ_DOT: /usr/bin/dot
+        run: |
+          set -euo pipefail
+          java -jar /tmp/plantuml.jar -testdot | tee /tmp/plantuml-testdot.txt
+          ! grep -qi "does not exist\|cannot find graphviz" /tmp/plantuml-testdot.txt
+
+      - name: Render reader-visible SVGs
+        shell: bash
+        env:
+          GRAPHVIZ_DOT: /usr/bin/dot
+        run: |
+          set -euo pipefail
+          rm -rf documentation/architecture/rendered
+          mkdir -p documentation/architecture/rendered
+          mapfile -t sources < <(find documentation/architecture -maxdepth 1 -type f -name '*.puml' -print | sort)
+          test "${#sources[@]}" -gt 0
+
+          java -jar /tmp/plantuml.jar -failfast2 -tsvg -o rendered "${sources[@]}"
+
+          mapfile -t rendered < <(find documentation/architecture/rendered -maxdepth 1 -type f -name '*.svg' -print | sort)
+          test "${#rendered[@]}" -eq "${#sources[@]}"
+          ! grep -Rqi "cannot find graphviz\|dot executable does not exist\|syntax error" documentation/architecture/rendered
+
+      - name: Commit generated diagrams on the documentation branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/docs/architecture-foundation'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add documentation/architecture/rendered
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs: render architecture diagrams"
+          git push origin HEAD:docs/architecture-foundation
+
+      - name: Verify committed renders are current
+        if: github.event_name != 'push' || github.ref != 'refs/heads/docs/architecture-foundation'
+        shell: bash
+        run: git diff --exit-code -- documentation/architecture/rendered
+
+      - name: Upload rendered SVGs
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-svg
+          path: documentation/architecture/rendered/*.svg
+          if-no-files-found: error
+          retention-days: 14

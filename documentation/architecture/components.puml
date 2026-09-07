@@ -1,0 +1,33 @@
+@startuml BikesMLOpsComponents
+!include <C4/C4_Component>
+
+LAYOUT_LEFT_RIGHT()
+title Bikes MLOps Package - Component View
+
+Person(practitioner, "ML practitioner / maintainer", "Runs configuration-driven jobs and reviews their evidence.")
+System_Ext(files, "Filesystem", "YAML/JSON configuration, CSV/Parquet datasets, and local outputs.")
+System_Ext(mlflow, "MLflow tracking and model registry", "Run metadata, metrics, artifacts, model versions, aliases, and audit records.")
+
+Container_Boundary(bikes_runtime, "bikes CLI process") {
+    Component(cli, "CLI entry point", "bikes.scripts", "Parses CLI arguments, merges configuration inputs, validates MainSettings, and executes one configured job.")
+    Component(config, "Configuration and settings", "bikes.settings + bikes.io.configs", "Converts YAML/JSON into strict typed job and service configuration.")
+    Component(jobs, "Job orchestration", "bikes.jobs", "Coordinates tuning, training, inference, evaluation, explanation, promotion, and rollback workflows.")
+    Component(core, "Model and validation core", "bikes.core", "Defines models, metrics, dataframe schemas, and model-level validation contracts.")
+    Component(data_provenance, "Data and provenance adapters", "bikes.io.datasets + bikes.io.provenance", "Loads validated tables and records deterministic dataset fingerprints and provenance metadata.")
+    Component(mlflow_adapters, "Tracking and registry adapters", "bikes.io.services + bikes.io.registries", "Manages MLflow run context, tracking, model registration, version lookup, aliases, promotion, and rollback state.")
+    Component(utils, "Execution utilities", "bikes.utils", "Provides chronological splitting, hyperparameter search helpers, and model signature utilities.")
+}
+
+Rel(practitioner, cli, "Runs jobs", "bikes CLI")
+Rel(cli, config, "Loads and validates job configuration")
+Rel(config, files, "Reads YAML/JSON configuration", "filesystem")
+Rel(cli, jobs, "Instantiates and executes configured job")
+Rel(jobs, core, "Fits, scores, validates, and explains models")
+Rel(jobs, data_provenance, "Loads datasets and records identity evidence")
+Rel(jobs, mlflow_adapters, "Tracks runs, models, evaluations, promotions, and rollbacks")
+Rel(jobs, utils, "Uses split/search/signature helpers")
+Rel(data_provenance, files, "Reads CSV/Parquet data and writes local outputs", "filesystem")
+Rel(mlflow_adapters, mlflow, "Uses tracking and registry APIs", "MLflow client")
+
+SHOW_LEGEND()
+@enduml
