@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/project-logo.png" alt="mlops-python-package project logo" width="160" height="160">
+</p>
+
 # MLOps Python Package
 
 [![Check](https://github.com/DiogoRibeiro7/mlops-python-package/actions/workflows/check.yml/badge.svg)](https://github.com/DiogoRibeiro7/mlops-python-package/actions/workflows/check.yml)

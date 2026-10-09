@@ -1,0 +1,7 @@
+Tool: built-in image generation
+
+Use case: logo-brand.
+Asset type: square README project logo for mlops-python-package.
+Project purpose: Kickstart your MLOps initiative with a flexible, robust, and productive Python package.
+Design direction: A violet folded shipping carton opens to reveal a single coral model lattice, its mint routing ribbon continuing through an input and output slot. Sophisticated paper-engineering illustration, pale lilac backdrop, tactile cardstock, crisp folds and soft shadows. One object with a clear operational flow.
+Composition: create one finished square artwork with a strong silhouette, readable at 160 pixels, and comfortable margins. This is the logo itself, not a presentation or product mockup. No text, words, letters, numbers, captions or watermark anywhere in the image. Do not use a generic navy-and-gold metallic badge.
